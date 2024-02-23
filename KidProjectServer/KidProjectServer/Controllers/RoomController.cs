@@ -17,45 +17,45 @@ namespace KidProjectServer.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class PackageController : ControllerBase
+    public class RoomController : ControllerBase
     {
         private readonly DBConnection _context;
         private readonly IConfiguration _configuration;
 
-        public PackageController(DBConnection context, IConfiguration configuration)
+        public RoomController(DBConnection context, IConfiguration configuration)
         {
             _context = context;
             _configuration = configuration;
         }
 
-        // GET: api/Package/{page}/{size}
+        // GET: api/Room/{page}/{size}
         [HttpGet("{page}/{size}")]
-        public async Task<ActionResult<IEnumerable<Package>>> GetPackages(int page, int size)
+        public async Task<ActionResult<IEnumerable<Room>>> GetRooms(int page, int size)
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Package[] packages = await _context.Packages.Skip(offset).Take(size).OrderByDescending(p => p.CreateDate).ToArrayAsync();
-            int countTotal = await _context.Packages.CountAsync();
+            Room[] rooms = await _context.Rooms.Skip(offset).Take(size).OrderByDescending(p => p.CreateDate).ToArrayAsync();
+            int countTotal = await _context.Rooms.CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
-            return Ok(ResponseArrayHandle<Package>.Success(packages, totalPage));
+            return Ok(ResponseArrayHandle<Room>.Success(rooms, totalPage));
         }
 
-        // GET: api/Package/5
+        // GET: api/Room/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<Package>> GetPackage(int id)
+        public async Task<ActionResult<Room>> GetRoom(int id)
         {
-            var package = await _context.Packages.FindAsync(id);
+            var room = await _context.Rooms.FindAsync(id);
 
-            if (package == null)
+            if (room == null)
             {
-                return Ok(ResponseHandle<LoginResponse>.Error("Package Not Found"));
+                return Ok(ResponseHandle<LoginResponse>.Error("Room Not Found"));
             }
-            return Ok(ResponseHandle<Package>.Success(package));
+            return Ok(ResponseHandle<Room>.Success(room));
         }
 
-        // POST: api/Package
+        // POST: api/Room
         [HttpPost]
-        public async Task<ActionResult<Package>> PostPackage([FromForm] PackageFormData formData)
+        public async Task<ActionResult<Room>> PostRoom([FromForm] RoomFormData formData)
         {
             if (formData.Image == null || formData.Image.Length == 0)
             {
@@ -70,36 +70,36 @@ namespace KidProjectServer.Controllers
                 await formData.Image.CopyToAsync(stream);
             }
 
-            // Create the package object and save it to the database
-            var package = new Package
+            // Create the room object and save it to the database
+            var room = new Room
             {
-                AdminUserID = formData.AdminUserID,
-                PackageName = formData.PackageName,
+                RoomNo = formData.RoomNo,
+                RoomName = formData.RoomName,
                 Description = formData.Description,
                 Image = fileName, // Save the image path to the database
-                Price = formData.Price,
+                PartyID = formData.PartyID,
                 CreateDate = DateTime.UtcNow,
                 LastUpdateDate = DateTime.UtcNow,
                 Status = Constants.STATUS_ACTIVE
             };
 
-            _context.Packages.Add(package);
+            _context.Rooms.Add(room);
             await _context.SaveChangesAsync();
 
-            return Ok(ResponseHandle<Package>.Success(package));
+            return Ok(ResponseHandle<Room>.Success(room));
         }
 
-        // PUT: api/Package/5
+        // PUT: api/Room/5
         [HttpPut]
-        public async Task<IActionResult> PutPackage([FromForm] PackageFormData formData)
+        public async Task<IActionResult> PutRoom([FromForm] RoomFormData formData)
         {
-            var packageOld = await _context.Packages.FirstOrDefaultAsync(u => u.PackageID == formData.PackageID);
-            if (packageOld == null)
+            var roomOld = await _context.Rooms.FirstOrDefaultAsync(u => u.RoomID == formData.RoomID);
+            if (roomOld == null)
             {
-                return Ok(ResponseHandle<LoginResponse>.Error("Package is not exists"));
+                return Ok(ResponseHandle<LoginResponse>.Error("Room is not exists"));
             }
 
-            string fileName = packageOld.Image;
+            string fileName = roomOld.Image;
             if (formData.Image != null)
             {
                 // Save the uploaded image to a specific location (or any other processing)
@@ -109,10 +109,10 @@ namespace KidProjectServer.Controllers
                 {
                     await formData.Image.CopyToAsync(stream);
                 }
-                // Delete old image path: packageOld.Image
-                if (!string.IsNullOrEmpty(packageOld.Image))
+                // Delete old image path: roomOld.Image
+                if (!string.IsNullOrEmpty(roomOld.Image))
                 {
-                    var oldImagePath = Path.Combine(_configuration["ImagePath"], packageOld.Image);
+                    var oldImagePath = Path.Combine(_configuration["ImagePath"], roomOld.Image);
                     if (System.IO.File.Exists(oldImagePath))
                     {
                         System.IO.File.Delete(oldImagePath);
@@ -120,56 +120,57 @@ namespace KidProjectServer.Controllers
                 }
             }
 
-            // Create the package object and save it to the database
-            packageOld.AdminUserID = formData.AdminUserID;
-            packageOld.PackageName = formData.PackageName;
-            packageOld.Description = formData.Description;
-            packageOld.Image = fileName;
-            packageOld.Price = formData.Price;
-            packageOld.LastUpdateDate = DateTime.UtcNow;
+            // Create the room object and save it to the database
+            roomOld.PartyID = formData.PartyID;
+            roomOld.RoomName = formData.RoomName;
+            roomOld.Description = formData.Description;
+            roomOld.Image = fileName;
+            roomOld.RoomNo = formData.RoomNo;
+            roomOld.LastUpdateDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            return Ok(ResponseHandle<Package>.Success(packageOld));
+            return Ok(ResponseHandle<Room>.Success(roomOld));
         }
 
-        // DELETE: api/Package/5
+        // DELETE: api/Room/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePackage(int id)
+        public async Task<IActionResult> DeleteRoom(int id)
         {
-            var packageOld = await _context.Packages.FindAsync(id);
-            if (packageOld == null)
+            var roomOld = await _context.Rooms.FindAsync(id);
+            if (roomOld == null)
             {
-                return Ok(ResponseHandle<LoginResponse>.Error("Package is not exists"));
+                return Ok(ResponseHandle<LoginResponse>.Error("Room is not exists"));
             }
 
-            if (!string.IsNullOrEmpty(packageOld.Image))
+            if (!string.IsNullOrEmpty(roomOld.Image))
             {
-                var oldImagePath = Path.Combine(_configuration["ImagePath"], packageOld.Image);
+                var oldImagePath = Path.Combine(_configuration["ImagePath"], roomOld.Image);
                 if (System.IO.File.Exists(oldImagePath))
                 {
                     System.IO.File.Delete(oldImagePath);
                 }
             }
 
-            _context.Packages.Remove(packageOld);
+            _context.Rooms.Remove(roomOld);
             await _context.SaveChangesAsync();
 
-            return Ok(ResponseHandle<Package>.Success(packageOld));
+            return Ok(ResponseHandle<Room>.Success(roomOld));
         }
 
-        private bool PackageExists(int id)
+        private bool RoomExists(int id)
         {
-            return _context.Packages.Any(e => e.PackageID == id);
+            return _context.Rooms.Any(e => e.RoomID == id);
         }
 
     }
 
     // Define a new class to handle the form data including the image
-    public class PackageFormData
+    public class RoomFormData
     {
-        public int? PackageID { get; set; }
-        public int AdminUserID { get; set; }
-        public string PackageName { get; set; }
+        public int? RoomID { get; set; }
+        public int PartyID { get; set; }
+        public string RoomName { get; set; }
+        public string RoomNo { get; set; }
         public string Description { get; set; }
         public IFormFile? Image { get; set; } // This property will hold the uploaded image file
         public int Price { get; set; }

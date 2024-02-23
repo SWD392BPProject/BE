@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "oxZ78oyEo5Xr1O6u3GnTvRd/9pvxW7YIU0DrTGEKtXYr7TbjYTutZhSTN54NMBl3RhchQSqG1Kb8dbcNAScRrA==",
+  "dgSpecHash": "kNV3bIruniAuvVM9ClL+RwOz/BX3o7AiY4mTRnnPAbGdeXAyormkcEHNRGLoceLjoefqqwbcXJGH+3OCblSmqA==",
   "success": true,
-  "projectFilePath": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\kid-party-project\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
+  "projectFilePath": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Trinh Huu Nghia\\.nuget\\packages\\azure.core\\1.35.0\\azure.core.1.35.0.nupkg.sha512",
     "C:\\Users\\Trinh Huu Nghia\\.nuget\\packages\\azure.identity\\1.10.3\\azure.identity.1.10.3.nupkg.sha512",

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\kid-party-project\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj": {}
+    "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\kid-party-project\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj": {
+    "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\kid-party-project\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
+        "projectUniqueName": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
         "projectName": "KidProjectServer",
-        "projectPath": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\kid-party-project\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
+        "projectPath": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
         "packagesPath": "C:\\Users\\Trinh Huu Nghia\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\kid-party-project\\KidProjectServer\\KidProjectServer\\obj\\",
+        "outputPath": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Trinh Huu Nghia\\AppData\\Roaming\\NuGet\\NuGet.Config",
