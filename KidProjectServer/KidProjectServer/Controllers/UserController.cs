@@ -78,6 +78,7 @@ namespace KidProjectServer.Controllers
                 var token = GenerateJwtToken(user);
                 LoginResponse loginResponse = new LoginResponse
                 {
+                    UserID = user.UserID??0,
                     FullName = user.FullName,
                     Email = user.Email,
                     PhoneNumber = user.PhoneNumber,
@@ -110,6 +111,7 @@ namespace KidProjectServer.Controllers
             var token = GenerateJwtToken(user);
             LoginResponse loginResponse = new LoginResponse
             {
+                UserID = user.UserID ?? 0,
                 FullName = user.FullName,
                 Email = user.Email,
                 PhoneNumber = user.PhoneNumber,
@@ -239,6 +241,7 @@ namespace KidProjectServer.Controllers
 
     public class LoginResponse
     {
+        public int UserID { get; set; }
         public string FullName { get; set; }
         public string Email { get; set; }
         public string PhoneNumber { get; set; }

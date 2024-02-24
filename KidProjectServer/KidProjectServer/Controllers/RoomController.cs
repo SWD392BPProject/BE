@@ -73,7 +73,6 @@ namespace KidProjectServer.Controllers
             // Create the room object and save it to the database
             var room = new Room
             {
-                RoomNo = formData.RoomNo,
                 RoomName = formData.RoomName,
                 Description = formData.Description,
                 Image = fileName, // Save the image path to the database
@@ -125,7 +124,6 @@ namespace KidProjectServer.Controllers
             roomOld.RoomName = formData.RoomName;
             roomOld.Description = formData.Description;
             roomOld.Image = fileName;
-            roomOld.RoomNo = formData.RoomNo;
             roomOld.LastUpdateDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
@@ -170,7 +168,6 @@ namespace KidProjectServer.Controllers
         public int? RoomID { get; set; }
         public int PartyID { get; set; }
         public string RoomName { get; set; }
-        public string RoomNo { get; set; }
         public string Description { get; set; }
         public IFormFile? Image { get; set; } // This property will hold the uploaded image file
         public int Price { get; set; }

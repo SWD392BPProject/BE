@@ -11,5 +11,6 @@ namespace KidProjectServer.Config
         public DbSet<User> Users { get; set; }
         public DbSet<Package> Packages { get; set; }
         public DbSet<Room> Rooms { get; set; }
+        public DbSet<Party> Parties { get; set; }
     }
 }

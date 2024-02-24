@@ -7,7 +7,8 @@ namespace KidProjectServer.Entities
         public int? RoomID { get; set; }
         public string? RoomName { get; set; }
         public int? PartyID { get; set; }
-        public string? RoomNo { get; set; }
+        public int? MinPeople { get; set; }
+        public int? MaxPeople { get; set; }
         public string? Image { get; set; }
         public string? Description { get; set; }
         public DateTime? CreateDate { get; set; }
