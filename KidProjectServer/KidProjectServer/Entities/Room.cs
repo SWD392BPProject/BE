@@ -6,9 +6,11 @@ namespace KidProjectServer.Entities
     {
         public int? RoomID { get; set; }
         public string? RoomName { get; set; }
-        public int? PartyID { get; set; }
+        public string? Type { get; set; }
         public int? MinPeople { get; set; }
         public int? MaxPeople { get; set; }
+        public int? Price { get; set; }
+        public int? HostUserID { get; set; }
         public string? Image { get; set; }
         public string? Description { get; set; }
         public DateTime? CreateDate { get; set; }

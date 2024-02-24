@@ -76,7 +76,11 @@ namespace KidProjectServer.Controllers
                 RoomName = formData.RoomName,
                 Description = formData.Description,
                 Image = fileName, // Save the image path to the database
-                PartyID = formData.PartyID,
+                Type = formData.Type,
+                MinPeople = formData.MinPeople,
+                MaxPeople = formData.MaxPeople,
+                Price = formData.Price,
+                HostUserID = formData.HostUserID,
                 CreateDate = DateTime.UtcNow,
                 LastUpdateDate = DateTime.UtcNow,
                 Status = Constants.STATUS_ACTIVE
@@ -120,7 +124,7 @@ namespace KidProjectServer.Controllers
             }
 
             // Create the room object and save it to the database
-            roomOld.PartyID = formData.PartyID;
+            roomOld.Type = formData.Type;
             roomOld.RoomName = formData.RoomName;
             roomOld.Description = formData.Description;
             roomOld.Image = fileName;
@@ -166,8 +170,11 @@ namespace KidProjectServer.Controllers
     public class RoomFormData
     {
         public int? RoomID { get; set; }
-        public int PartyID { get; set; }
         public string RoomName { get; set; }
+        public int HostUserID { get; set; }
+        public int MinPeople { get; set; }
+        public int MaxPeople { get; set; }
+        public string Type { get; set; }
         public string Description { get; set; }
         public IFormFile? Image { get; set; } // This property will hold the uploaded image file
         public int Price { get; set; }
