@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.SqlServer.Server;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -25,69 +26,83 @@ namespace KidProjectServer.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] Dictionary<string, string> userDto)
+        public async Task<IActionResult> Register([FromForm] RegisterUserForm userDto)
         {
-            string UserName = RequestParams.GetForKey(userDto, "UserName");
-            string Password = RequestParams.GetForKey(userDto, "Password");
-            string PhoneNumber = RequestParams.GetForKey(userDto, "PhoneNumber");
-            string Email = RequestParams.GetForKey(userDto, "Email");
-
-            if(string.IsNullOrEmpty(UserName) || string.IsNullOrEmpty(Password) || string.IsNullOrEmpty(PhoneNumber) || string.IsNullOrEmpty(Email))
+            try
             {
-                return Ok(ResponseHandle<LoginResponse>.Error("Invalid info user to register"));
+                if (string.IsNullOrEmpty(userDto.FullName)
+                || string.IsNullOrEmpty(userDto.Password)
+                || string.IsNullOrEmpty(userDto.PhoneNumber)
+                || string.IsNullOrEmpty(userDto.Email))
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("Invalid info user to register"));
+                }
+
+                if (userDto.Password.Length < 6)
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("Password must contain at least 6 characters."));
+                }
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userDto.Email);
+                if (user != null)
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("Email already in exists"));
+                }
+                string fileName = null;
+                if (userDto.Image != null)
+                {
+                    fileName = Guid.NewGuid().ToString() + Path.GetExtension(userDto.Image.FileName);
+                    var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
+                    using (var stream = new FileStream(imagePath, FileMode.Create))
+                    {
+                        await userDto.Image.CopyToAsync(stream);
+                    }
+                }
+
+                user = new User
+                {
+                    FullName = userDto.FullName,
+                    Email = userDto.Email,
+                    Image = fileName,
+                    Password = HashPassword(userDto.Password),
+                    PhoneNumber = userDto.PhoneNumber,
+                    CreateDate = DateTime.UtcNow,
+                    LastUpdateDate = DateTime.UtcNow,
+                    Status = Constants.STATUS_ACTIVE,
+                    Role = userDto.Role,
+                };
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                var token = GenerateJwtToken(user);
+                LoginResponse loginResponse = new LoginResponse
+                {
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Role = user.Role,
+                    Token = token,
+                };
+
+                return Ok(ResponseHandle<LoginResponse>.Success(loginResponse));
             }
-
-            if(Password.Length < 6)
+            catch(Exception e)
             {
-                return Ok(ResponseHandle<LoginResponse>.Error("Password must contain at least 6 characters."));
+                return Ok(ResponseHandle<LoginResponse>.Error("Error occur in server"));
             }
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == UserName);
-            if (user != null)
-            {
-                return Ok(ResponseHandle<LoginResponse>.Error("UserName already in exists"));
-            }
-
-            user = new User
-            {
-                UserName = UserName,
-                Email = Email,
-                Password = HashPassword(Password),
-                PhoneNumber = PhoneNumber,
-                CreateDate = DateTime.UtcNow,
-                LastUpdateDate = DateTime.UtcNow,
-                Status = Constants.STATUS_ACTIVE,
-                Role = Constants.ROLE_USER
-            };
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            var token = GenerateJwtToken(user);
-            LoginResponse loginResponse = new LoginResponse
-            {
-                UserName = user.UserName,
-                Email = user.Email,
-                PhoneNumber = user.PhoneNumber,
-                Token = token,
-            };
-
-            return Ok(ResponseHandle<LoginResponse>.Success(loginResponse));
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] Dictionary<string, string> loginDto)
+        public async Task<IActionResult> Login([FromForm] UserLoginDto loginDto)
         {
-            string UserName = RequestParams.GetForKey(loginDto, "UserName");
-            string Password = RequestParams.GetForKey(loginDto, "Password");
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == UserName);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginDto.Email);
             if (user == null)
             {
                 return Ok(ResponseHandle<LoginResponse>.Error("Incorect username or password"));
             }
 
-            if (!VerifyPassword(user.Password, Password))
+            if (!VerifyPassword(user.Password, loginDto.Password))
             {
                 return Ok(ResponseHandle<LoginResponse>.Error("Incorect username or password"));
             }
@@ -95,9 +110,10 @@ namespace KidProjectServer.Controllers
             var token = GenerateJwtToken(user);
             LoginResponse loginResponse = new LoginResponse
             {
-                UserName = user.UserName,
+                FullName = user.FullName,
                 Email = user.Email,
                 PhoneNumber = user.PhoneNumber,
+                Role = user.Role,
                 Token = token,
             };
 
@@ -196,7 +212,7 @@ namespace KidProjectServer.Controllers
             {
                 Subject = new ClaimsIdentity(new[]
                 {
-                    new Claim(ClaimTypes.Name, user.UserName),
+                    new Claim(ClaimTypes.Name, user.FullName),
                     new Claim(ClaimTypes.Email, user.Email),
                     new Claim(ClaimTypes.Role, user.Role)
                     // Add more claims as needed
@@ -223,10 +239,26 @@ namespace KidProjectServer.Controllers
 
     public class LoginResponse
     {
-        public string UserName { get; set; }
+        public string FullName { get; set; }
         public string Email { get; set; }
         public string PhoneNumber { get; set; }
+        public string Role { get; set; }
         public string Token { get; set; }
+    }
+
+    public class RegisterUserForm
+    {
+        public string FullName { get; set; }
+        public string Email { get; set; }
+        public string PhoneNumber { get; set; }
+        public string Password { get; set; }
+        public string Role { get; set; }
+        public IFormFile? Image { get; set; }
+    }
+    public class UserLoginDto
+    {
+        public string Email { get; set; }
+        public string Password { get; set; }
     }
     
 }

@@ -171,7 +171,7 @@ namespace KidProjectServer.Controllers
         public int AdminUserID { get; set; }
         public string PackageName { get; set; }
         public string Description { get; set; }
-        public IFormFile? Image { get; set; } // This property will hold the uploaded image file
+        public IFormFile? Image { get; set; }
         public int Price { get; set; }
     }
 
