@@ -29,6 +29,18 @@ namespace KidProjectServer.Controllers
         }
 
         // GET: api/Room/{page}/{size}
+        [HttpGet("{page}/{size}/{hostId}")]
+        public async Task<ActionResult<IEnumerable<Room>>> GetRooms(int page, int size, int hostId)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            Room[] rooms = await _context.Rooms.Where(p => p.HostUserID == hostId).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Rooms.Where(p => p.HostUserID == hostId).CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<Room>.Success(rooms, totalPage));
+        }
+
+        // GET: api/Room/{page}/{size}
         [HttpGet("{page}/{size}")]
         public async Task<ActionResult<IEnumerable<Room>>> GetRooms(int page, int size)
         {

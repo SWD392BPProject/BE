@@ -1,11 +1,10 @@
 ﻿namespace KidProjectServer.Entities
 {
-    public class Party
+    public class Voucher
     {
-        public int? PartyID { get; set; }
+        public int? VoucherID { get; set; }
         public int? HostUserID { get; set; }
-        public int? MonthViewed { get; set; }
-        public string? PartyName { get; set; }
+        public string? VoucherCode { get; set; }
         public string? Description { get; set; }
         public string? Address { get; set; }
         public string? Type { get; set; }
@@ -16,11 +15,3 @@
     }
 }
 
-/*
- * ĐÁM CƯỚI
- * TÂN GIA
- * LIÊN HOAN
- * TẤT NIÊN
- * SINH NHẬT
- * KHÁC
- */

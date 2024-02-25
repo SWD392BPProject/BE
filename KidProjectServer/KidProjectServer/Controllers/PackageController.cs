@@ -29,6 +29,18 @@ namespace KidProjectServer.Controllers
         }
 
         // GET: api/Package/{page}/{size}
+        [HttpGet("{page}/{size}/{hostId}")]
+        public async Task<ActionResult<IEnumerable<Package>>> GetPackages(int page, int size, int hostId)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            Package[] packages = await _context.Packages.Where(p => p.AdminUserID == hostId).OrderBy(p => p.ActiveDays).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Packages.Where(p => p.AdminUserID == hostId).CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<Package>.Success(packages, totalPage));
+        }
+
+        // GET: api/Package/{page}/{size}
         [HttpGet("{page}/{size}")]
         public async Task<ActionResult<IEnumerable<Package>>> GetPackages(int page, int size)
         {
@@ -76,6 +88,7 @@ namespace KidProjectServer.Controllers
                 AdminUserID = formData.AdminUserID,
                 PackageName = formData.PackageName,
                 Description = formData.Description,
+                ActiveDays = formData.ActiveDays,
                 Image = fileName, // Save the image path to the database
                 Price = formData.Price,
                 CreateDate = DateTime.UtcNow,
@@ -124,6 +137,7 @@ namespace KidProjectServer.Controllers
             packageOld.AdminUserID = formData.AdminUserID;
             packageOld.PackageName = formData.PackageName;
             packageOld.Description = formData.Description;
+            packageOld.ActiveDays = formData.ActiveDays;
             packageOld.Image = fileName;
             packageOld.Price = formData.Price;
             packageOld.LastUpdateDate = DateTime.UtcNow;
@@ -169,6 +183,7 @@ namespace KidProjectServer.Controllers
     {
         public int? PackageID { get; set; }
         public int AdminUserID { get; set; }
+        public int? ActiveDays { get; set; }
         public string PackageName { get; set; }
         public string Description { get; set; }
         public IFormFile? Image { get; set; }

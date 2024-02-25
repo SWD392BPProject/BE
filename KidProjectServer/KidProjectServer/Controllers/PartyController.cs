@@ -51,6 +51,7 @@ namespace KidProjectServer.Controllers
                 PartyName = formData.PartyName,
                 Description = formData.Description,
                 Address = formData.Address,
+                MonthViewed = 0,
                 Type = formData.Type,
                 Image = fileName, // Save the image path to the database
                 HostUserID = formData.HostUserID,
@@ -65,7 +66,7 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<Party>.Success(Party));
         }
 
-        // GET: api/Party/{page}/{size}
+        // GET: api/Party/{page}/{size}/{hostId}
         [HttpGet("{page}/{size}/{hostId}")]
         public async Task<ActionResult<IEnumerable<Party>>> GetParties(int page, int size, int hostId)
         {
@@ -77,6 +78,29 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
         }
 
+        // GET: api/Party/{page}/{size}
+        [HttpGet("{page}/{size}")]
+        public async Task<ActionResult<IEnumerable<Party>>> GetAllParties(int page, int size, int hostId)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            Party[] parties = await _context.Parties.OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Parties.CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
+        }
+
+        // GET: api/TopMonth/Party/{page}/{size}
+        [HttpGet("TopMonth/{page}/{size}")]
+        public async Task<ActionResult<IEnumerable<Party>>> GetTopMonthViewed(int page, int size, int hostId)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            Party[] parties = await _context.Parties.OrderByDescending(p => p.MonthViewed).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Parties.CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
+        }
     }
 
     // Define a new class to handle the form data including the image
