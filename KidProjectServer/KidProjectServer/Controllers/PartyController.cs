@@ -78,6 +78,20 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
         }
 
+        // GET: /Party/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Party>> GetParty(int id)
+        {
+            var party = await _context.Parties.FindAsync(id);
+
+            if (party == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(ResponseHandle<Party>.Success(party));
+        }
+
         // GET: api/Party/{page}/{size}
         [HttpGet("{page}/{size}")]
         public async Task<ActionResult<IEnumerable<Party>>> GetAllParties(int page, int size, int hostId)
@@ -101,6 +115,26 @@ namespace KidProjectServer.Controllers
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
         }
+
+        // GET: api/TopMonth/Party/{page}/{size}
+        [HttpPost("SearchBooking/{page}/{size}")]
+        public async Task<ActionResult<IEnumerable<Party>>> GetSearchBooking(int page, int size, [FromForm] PartySearchFormData searchForm)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+
+            var query = from party in _context.Parties
+                        join user in _context.Users on party.HostUserID equals user.UserID
+                        join room in _context.Rooms on user.UserID equals room.HostUserID
+                        join slot in _context.Slots on room.RoomID equals slot.RoomID
+                        where party.Type == searchForm.Type && room.Type == searchForm.Type && slot.StartTime <= TextUtil.ConvertStringToTime(searchForm.SlotTime) && slot.EndTime >= TextUtil.ConvertStringToTime(searchForm.SlotTime)
+                        select party;
+
+            Party[] parties = await query.Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await query.CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
+        }
     }
 
     // Define a new class to handle the form data including the image
@@ -114,5 +148,12 @@ namespace KidProjectServer.Controllers
         public IFormFile? Image { get; set; }
     }
 
+    public class PartySearchFormData
+    {
+        public string? Type { get; set; }
+        public string? DateBooking { get; set; }
+        public int? People { get; set; }
+        public string? SlotTime { get; set; }
+    }
 
 }
