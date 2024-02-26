@@ -51,8 +51,9 @@ namespace KidProjectServer.Controllers
                 PartyName = formData.PartyName,
                 Description = formData.Description,
                 Address = formData.Address,
+                Type = string.Join(",", formData.Type),
                 MonthViewed = 0,
-                Type = formData.Type,
+                MenuList = string.Join(",", formData.MenuList),
                 Image = fileName, // Save the image path to the database
                 HostUserID = formData.HostUserID,
                 CreateDate = DateTime.UtcNow,
@@ -77,6 +78,8 @@ namespace KidProjectServer.Controllers
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
         }
+
+        
 
         // GET: /Party/5
         [HttpGet("{id}")]
@@ -141,6 +144,7 @@ namespace KidProjectServer.Controllers
     public class PartyFormData
     {
         public int? HostUserID { get; set; }
+        public string[] MenuList { get; set; }
         public string? PartyName { get; set; }
         public string? Description { get; set; }
         public string? Address { get; set; }

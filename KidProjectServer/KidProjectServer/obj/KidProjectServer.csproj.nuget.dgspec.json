@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\HP\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj": {}
+    "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj": {}
   },
   "projects": {
-    "C:\\Users\\HP\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj": {
+    "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\HP\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
+        "projectUniqueName": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
         "projectName": "KidProjectServer",
-        "projectPath": "C:\\Users\\HP\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
-        "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\HP\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\obj\\",
+        "projectPath": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\KidProjectServer.csproj",
+        "packagesPath": "C:\\Users\\Trinh Huu Nghia\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\Trinh Huu Nghia\\Documents\\GitHub\\BE\\KidProjectServer\\KidProjectServer\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\Trinh Huu Nghia\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
@@ -80,7 +80,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.101/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.100/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
