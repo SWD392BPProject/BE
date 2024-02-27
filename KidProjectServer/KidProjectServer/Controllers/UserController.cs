@@ -94,6 +94,54 @@ namespace KidProjectServer.Controllers
             }
         }
 
+        [HttpPost("loginWithGoogle")]
+        public async Task<IActionResult> LoginWithGoogle([FromForm] GoogleLoginForm userDto)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userDto.Email) || string.IsNullOrEmpty(userDto.FullName))
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("Invalid info user to login"));
+                }
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userDto.Email);
+                if (user == null)
+                {
+                    //REGISTER NEW ACCOUNT
+                    user = new User
+                    {
+                        FullName = userDto.FullName,
+                        Email = userDto.Email,
+                        Password = HashPassword("123456"),
+                        CreateDate = DateTime.UtcNow,
+                        LastUpdateDate = DateTime.UtcNow,
+                        Status = Constants.STATUS_ACTIVE,
+                        Role = Constants.ROLE_USER,
+                    };
+
+                    _context.Users.Add(user);
+                    await _context.SaveChangesAsync();
+                }
+
+                var token = GenerateJwtToken(user);
+                LoginResponse loginResponse = new LoginResponse
+                {
+                    UserID = user.UserID ?? 0,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Role = user.Role,
+                    Token = token,
+                };
+
+                return Ok(ResponseHandle<LoginResponse>.Success(loginResponse));
+            }
+            catch (Exception e)
+            {
+                return Ok(ResponseHandle<LoginResponse>.Error("Error occur in server"));
+            }
+        }
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromForm] UserLoginDto loginDto)
         {
@@ -258,6 +306,13 @@ namespace KidProjectServer.Controllers
         public string Role { get; set; }
         public IFormFile? Image { get; set; }
     }
+
+    public class GoogleLoginForm
+    {
+        public string Email { get; set; }
+        public string FullName { get; set; }
+    }
+
     public class UserLoginDto
     {
         public string Email { get; set; }
