@@ -6,6 +6,12 @@
         static public string STATUS_ACTIVE = "Active";
         static public string STATUS_INACTIVE = "Inactive";
 
+        /*BOOKING STATUS*/
+        static public string BOOKING_STATUS_CREATE = "Create";
+        static public string BOOKING_STATUS_PAID = "Paid";
+        static public string BOOKING_STATUS_DONE = "Done";
+        static public string BOOKING_STATUS_CANCEL = "Cancel";
+
         /*ROLE NAME*/
         static public string ROLE_USER = "User";
         static public string ROLE_ADMIN = "Admin";

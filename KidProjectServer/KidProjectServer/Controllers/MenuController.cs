@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
+using System.Drawing;
 using System.IdentityModel.Tokens.Jwt;
 using System.Reflection.Metadata;
 using System.Security.Claims;
@@ -64,12 +65,37 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<Menu>.Success(Menu));
         }
 
-        // GET: api/Menu/{page}/{size}/{hostId}
         [HttpGet("byHostId/{hostId}")]
         public async Task<ActionResult<IEnumerable<Menu>>> GetByHostId(int hostId)
         {
             Menu[] menus = await _context.Menus.Where(p => p.HostUserID == hostId).OrderByDescending(p => p.CreateDate).ToArrayAsync();
             return Ok(ResponseArrayHandle<Menu>.Success(menus));
+        }
+
+        // GET: api/Menu/{page}/{size}/{hostId}
+        [HttpGet("byPartyId/{partyId}")]
+        public async Task<ActionResult<IEnumerable<Menu>>> GetByPartyId(int partyId)
+        {
+            var query = from menu in _context.Menus
+                           join menu_parties in _context.MenuParty
+                           on menu.MenuID equals menu_parties.MenuID
+                           join party in _context.Parties
+                           on menu_parties.PartyID equals party.PartyID
+                           where party.PartyID == partyId
+                           select menu;
+            Menu[] menus = await query.ToArrayAsync();
+            return Ok(ResponseArrayHandle<Menu>.Success(menus));
+        }
+
+        [HttpGet("byHostIdPaging/{hostId}/{page}/{size}")]
+        public async Task<ActionResult<IEnumerable<Menu>>> GetByHostIdPaging(int hostId, int page, int size)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            Menu[] menuss = await _context.Menus.Where(p => p.HostUserID == hostId).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Menus.Where(p => p.HostUserID == hostId).CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<Menu>.Success(menuss, totalPage));
         }
 
     }
