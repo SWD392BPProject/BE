@@ -30,6 +30,29 @@ namespace KidProjectServer.Controllers
             _configuration = configuration;
         }
 
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<IEnumerable<Booking>>> GetByID(int id)
+        {
+            Booking booking = await _context.Bookings.Where(p => p.BookingID == id).FirstOrDefaultAsync();
+            return Ok(ResponseHandle<Booking>.Success(booking));
+        }
+
+        [HttpGet("changeStatus/{id}/{status}")]
+        public async Task<ActionResult<IEnumerable<Booking>>> ChangeStatusBooking(int id, string status)
+        {
+            Booking booking = await _context.Bookings.Where(p => p.BookingID == id).FirstOrDefaultAsync();
+
+            if(booking == null)
+            {
+                return Ok(ResponseHandle<Booking>.Error("Booking not found"));
+            }
+
+            booking.Status = status;
+            await _context.SaveChangesAsync();
+            return Ok(ResponseHandle<Booking>.Success(booking));
+        }
+
         // POST: api/Menu
         [HttpPost]
         public async Task<ActionResult<Booking>> PostMenu([FromForm] BookingFormData formData)
@@ -55,6 +78,7 @@ namespace KidProjectServer.Controllers
                     MenuID = formData.MenuBooking,
                     MenuName = menu.MenuName,
                     MenuPrice = menu.Price,
+                    MenuDescription = menu.Description,
                     PaymentAmount = room.Price + (menu.Price * formData.DiningTable),
                     DiningTable = formData.DiningTable,
                     BookingDate = DateTime.ParseExact(formData.BookingDate, "yyyy-MM-dd", CultureInfo.InvariantCulture), //convert string to date

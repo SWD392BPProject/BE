@@ -17,6 +17,7 @@ namespace KidProjectServer.Entities
         public int? MenuID { get; set; }
         public string? MenuName { get; set; }
         public int? MenuPrice { get; set; }
+        public string? MenuDescription { get; set; }
         public int? DiningTable { get; set; }
         public int? PaymentAmount { get; set; }
         public string? Description { get; set; }
