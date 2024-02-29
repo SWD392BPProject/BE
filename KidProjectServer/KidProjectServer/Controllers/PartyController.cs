@@ -130,9 +130,11 @@ namespace KidProjectServer.Controllers
                         join user in _context.Users on party.HostUserID equals user.UserID
                         join room in _context.Rooms on user.UserID equals room.HostUserID
                         join slot in _context.Slots on room.RoomID equals slot.RoomID
-                        where party.Type == searchForm.Type && room.Type == searchForm.Type && slot.StartTime <= TextUtil.ConvertStringToTime(searchForm.SlotTime) && slot.EndTime >= TextUtil.ConvertStringToTime(searchForm.SlotTime)
+                        where room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type
                         select party;
 
+
+            //where party.Type == searchForm.Type && room.Type == searchForm.Type && slot.StartTime <= TextUtil.ConvertStringToTime(searchForm.SlotTime) && slot.EndTime >= TextUtil.ConvertStringToTime(searchForm.SlotTime)
             Party[] parties = await query.Skip(offset).Take(size).ToArrayAsync();
             int countTotal = await query.CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);

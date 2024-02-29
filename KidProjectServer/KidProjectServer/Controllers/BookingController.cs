@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
 using System.Drawing;
@@ -36,6 +37,17 @@ namespace KidProjectServer.Controllers
         {
             Booking booking = await _context.Bookings.Where(p => p.BookingID == id).FirstOrDefaultAsync();
             return Ok(ResponseHandle<Booking>.Success(booking));
+        }
+
+        [HttpGet("byUserID/{id}/{page}/{size}")]
+        public async Task<ActionResult<IEnumerable<Booking>>> GetByUserID(int id, int page, int size)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            Booking[] bookings = await _context.Bookings.Where(p => p.UserID == id).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Bookings.Where(p => p.UserID == id).CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<Booking>.Success(bookings));
         }
 
         [HttpGet("changeStatus/{id}/{status}")]
