@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Reflection.Metadata;
 using System.Security.Claims;
@@ -123,22 +124,56 @@ namespace KidProjectServer.Controllers
         [HttpPost("SearchBooking/{page}/{size}")]
         public async Task<ActionResult<IEnumerable<Party>>> GetSearchBooking(int page, int size, [FromForm] PartySearchFormData searchForm)
         {
-            int offset = 0;
-            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            try
+            {
+                int offset = 0;
+                PagingUtil.GetPageSize(ref page, ref size, ref offset);
+                DateTime? bookingDate = null;
+                if (searchForm.DateBooking != null)
+                {
+                    bookingDate = DateTime.ParseExact(searchForm.DateBooking, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+                }
+                var query = from party in _context.Parties
+                            join user in _context.Users on party.HostUserID equals user.UserID
+                            join room in _context.Rooms on user.UserID equals room.HostUserID
+                            join slot in _context.Slots on room.RoomID equals slot.RoomID
+                            where
+                                  (string.IsNullOrEmpty(searchForm.Type) || ((!string.IsNullOrEmpty(searchForm.SlotTime)) || (party.Type == searchForm.Type))) &&
+                                  (string.IsNullOrEmpty(searchForm.Type) || ((string.IsNullOrEmpty(searchForm.SlotTime))) || (room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type)) &&
+                                  //(string.IsNullOrEmpty(searchForm.Type) || (room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type)) &&
+                                  (string.IsNullOrEmpty(searchForm.SlotTime) || (slot.StartTime <= TextUtil.ConvertStringToTime(searchForm.SlotTime) && slot.EndTime >= TextUtil.ConvertStringToTime(searchForm.SlotTime))) &&
+                                  (string.IsNullOrEmpty(searchForm.People.ToString()) || (room.MinPeople >= searchForm.People && room.MaxPeople >= searchForm.People)) &&
+                                  (string.IsNullOrEmpty(searchForm.DateBooking) ||
+                                  ( string.IsNullOrEmpty(searchForm.SlotTime) ||
+                                  !_context.Bookings.Any(booking =>
+                                      booking.BookingDate == bookingDate &&
+                                      booking.SlotTimeStart <= TextUtil.ConvertStringToTime(searchForm.SlotTime) &&
+                                      booking.SlotTimeEnd > TextUtil.ConvertStringToTime(searchForm.SlotTime) &&
+                                      booking.RoomID == room.RoomID) ))
+                            group party by new { party.PartyID, party.PartyName, party.Image, party.Address, party.CreateDate, party.Description, party.Type, party.MonthViewed } into grouped
+                            select new Party
+                            {
+                                PartyID = grouped.Key.PartyID,
+                                PartyName = grouped.Key.PartyName,
+                                Image = grouped.Key.Image,
+                                Address = grouped.Key.Address,
+                                CreateDate = grouped.Key.CreateDate,
+                                Description = grouped.Key.Description,
+                                Type = grouped.Key.Type,
+                                MonthViewed = grouped.Key.MonthViewed,
+                            };
 
-            var query = from party in _context.Parties
-                        join user in _context.Users on party.HostUserID equals user.UserID
-                        join room in _context.Rooms on user.UserID equals room.HostUserID
-                        join slot in _context.Slots on room.RoomID equals slot.RoomID
-                        where room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type
-                        select party;
-
-
-            //where party.Type == searchForm.Type && room.Type == searchForm.Type && slot.StartTime <= TextUtil.ConvertStringToTime(searchForm.SlotTime) && slot.EndTime >= TextUtil.ConvertStringToTime(searchForm.SlotTime)
-            Party[] parties = await query.Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await query.CountAsync();
-            int totalPage = (int)Math.Ceiling((double)countTotal / size);
-            return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
+                Party[] parties = await query.Skip(offset).Take(size).ToArrayAsync();
+                int countTotal = await query.CountAsync();
+                int totalPage = (int)Math.Ceiling((double)countTotal / size);
+                return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return BadRequest(e.Message);
+            }
+            
         }
     }
 

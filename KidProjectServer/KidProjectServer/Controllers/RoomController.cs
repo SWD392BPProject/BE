@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Reflection.Metadata;
 using System.Security.Claims;
@@ -212,6 +213,62 @@ namespace KidProjectServer.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(ResponseHandle<Room>.Success(roomOld));
+        }
+
+        //API SEARCH ROOM FOR RENT
+        [HttpPost("RoomForRent/{page}/{size}/{partyId}")]
+        public async Task<ActionResult<IEnumerable<Room>>> GetRoomForRent(int page, int size, int partyId, [FromForm] PartySearchFormData searchForm)
+        {
+            try
+            {
+                int offset = 0;
+                PagingUtil.GetPageSize(ref page, ref size, ref offset);
+                DateTime? bookingDate = null;
+                if (searchForm.DateBooking != null)
+                {
+                    bookingDate = DateTime.ParseExact(searchForm.DateBooking, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+                }
+                var query = from party in _context.Parties
+                            join user in _context.Users on party.HostUserID equals user.UserID
+                            join room in _context.Rooms on user.UserID equals room.HostUserID
+                            join slot in _context.Slots on room.RoomID equals slot.RoomID
+                            where
+                                  party.PartyID == partyId &&
+                                  (string.IsNullOrEmpty(searchForm.Type) || room.Type.Contains(searchForm.Type)) &&
+                                  //(string.IsNullOrEmpty(searchForm.Type) || (room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type)) &&
+                                  (string.IsNullOrEmpty(searchForm.SlotTime) || (slot.StartTime <= TextUtil.ConvertStringToTime(searchForm.SlotTime) && slot.EndTime >= TextUtil.ConvertStringToTime(searchForm.SlotTime))) &&
+                                  (string.IsNullOrEmpty(searchForm.People.ToString()) || (room.MinPeople <= searchForm.People && room.MaxPeople >= searchForm.People)) &&
+                                  (string.IsNullOrEmpty(searchForm.DateBooking) ||
+                                  (string.IsNullOrEmpty(searchForm.SlotTime) ||
+                                  !_context.Bookings.Any(booking =>
+                                      booking.BookingDate == bookingDate &&
+                                      booking.SlotTimeStart <= TextUtil.ConvertStringToTime(searchForm.SlotTime) &&
+                                      booking.SlotTimeEnd > TextUtil.ConvertStringToTime(searchForm.SlotTime) &&
+                                      booking.RoomID == room.RoomID)))
+                            group party by new { room.RoomID, room.RoomName, room.Image, room.MinPeople, room.MaxPeople, room.Price, room.Description, room.Type } into grouped
+                            select new Room
+                            {
+                                RoomID = grouped.Key.RoomID,
+                                RoomName = grouped.Key.RoomName,
+                                Image = grouped.Key.Image,
+                                MinPeople = grouped.Key.MinPeople,
+                                MaxPeople = grouped.Key.MaxPeople,
+                                Description = grouped.Key.Description,
+                                Price = grouped.Key.Price,
+                                Type = grouped.Key.Type,
+                            };
+
+                Room[] rooms = await query.Skip(offset).Take(size).ToArrayAsync();
+                int countTotal = await query.CountAsync();
+                int totalPage = (int)Math.Ceiling((double)countTotal / size);
+                return Ok(ResponseArrayHandle<Room>.Success(rooms, totalPage));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                return BadRequest(e.Message);
+            }
+
         }
 
         private bool RoomExists(int id)
