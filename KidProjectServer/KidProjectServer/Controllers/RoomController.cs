@@ -35,8 +35,8 @@ namespace KidProjectServer.Controllers
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Room[] rooms = await _context.Rooms.Where(p => p.HostUserID == hostId).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Rooms.Where(p => p.HostUserID == hostId).CountAsync();
+            Room[] rooms = await _context.Rooms.Where(p => p.HostUserID == hostId && p.Status == Constants.STATUS_ACTIVE).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Rooms.Where(p => p.HostUserID == hostId && p.Status == Constants.STATUS_ACTIVE).CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Room>.Success(rooms, totalPage));
         }
@@ -47,8 +47,8 @@ namespace KidProjectServer.Controllers
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Room[] rooms = await _context.Rooms.Skip(offset).Take(size).OrderByDescending(p => p.CreateDate).ToArrayAsync();
-            int countTotal = await _context.Rooms.CountAsync();
+            Room[] rooms = await _context.Rooms.Where(p => p.Status == Constants.STATUS_ACTIVE).Skip(offset).Take(size).OrderByDescending(p => p.CreateDate).ToArrayAsync();
+            int countTotal = await _context.Rooms.Where(p => p.Status == Constants.STATUS_ACTIVE).CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Room>.Success(rooms, totalPage));
         }
@@ -57,13 +57,125 @@ namespace KidProjectServer.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Room>> GetRoom(int id)
         {
-            var room = await _context.Rooms.FindAsync(id);
+            var room = await _context.Rooms.Where(p => p.RoomID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
 
             if (room == null)
             {
                 return Ok(ResponseHandle<LoginResponse>.Error("Room Not Found"));
             }
             return Ok(ResponseHandle<Room>.Success(room));
+        }
+
+        // PUT: api/Room
+        [HttpPut]
+        public async Task<ActionResult<Room>> PutRoom([FromForm] RoomFormData formData)
+        {
+            Room oldRoom = await _context.Rooms.Where(p => p.RoomID == formData.RoomID && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            if (oldRoom == null)
+            {
+                return Ok(ResponseHandle<Room>.Error("Not found room"));
+            }
+
+
+            string fileName = oldRoom.Image;
+            if (formData.Image != null & formData.Image.Length > 0)
+            {
+                // Save the uploaded image to a specific location (or any other processing)
+                fileName = Guid.NewGuid().ToString() + Path.GetExtension(formData.Image.FileName);
+                var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
+                using (var stream = new FileStream(imagePath, FileMode.Create))
+                {
+                    await formData.Image.CopyToAsync(stream);
+                }
+                // Delete old image if it exists
+                var oldImagePath = Path.Combine(_configuration["ImagePath"], oldRoom.Image);
+                if (System.IO.File.Exists(oldImagePath))
+                {
+                    System.IO.File.Delete(oldImagePath);
+                }
+            }
+
+            oldRoom.RoomName = formData.RoomName;
+            oldRoom.Description = formData.Description;
+            oldRoom.Image = fileName;
+            oldRoom.Type = string.Join(",", formData.Type);
+            oldRoom.MinPeople = formData.MinPeople;
+            oldRoom.MaxPeople = formData.MaxPeople;
+            oldRoom.Price = formData.Price;
+            oldRoom.LastUpdateDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            List<Slot> listSlotAdd = new List<Slot>();
+
+            Slot[] slotbyRoomID = await _context.Slots.Where(s => s.RoomID == oldRoom.RoomID).OrderBy(s => s.StartTime).ToArrayAsync();
+
+            if (slotbyRoomID != null && slotbyRoomID.Length > 0)
+            {
+                _context.Slots.RemoveRange(slotbyRoomID);
+                await _context.SaveChangesAsync();
+            }
+
+            var slot1 = new Slot
+            {
+                RoomID = oldRoom.RoomID,
+                StartTime = TextUtil.ConvertStringToTime(formData.SlotStart1),
+                EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd1)
+            };
+            listSlotAdd.Add(slot1);
+
+            if (formData.SlotStart2 != null && formData.SlotEnd2 != null)
+            {
+                var slot2 = new Slot
+                {
+                    RoomID = oldRoom.RoomID,
+                    StartTime = TextUtil.ConvertStringToTime(formData.SlotStart2),
+                    EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd2)
+                };
+                listSlotAdd.Add(slot2);
+            }
+
+            if (formData.SlotStart3 != null && formData.SlotEnd3 != null)
+            {
+                var slot3 = new Slot
+                {
+                    RoomID = oldRoom.RoomID,
+                    StartTime = TextUtil.ConvertStringToTime(formData.SlotStart3),
+                    EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd3)
+                };
+                listSlotAdd.Add(slot3);
+            }
+            if (formData.SlotStart4 != null && formData.SlotEnd4 != null)
+            {
+                var slot4 = new Slot
+                {
+                    RoomID = oldRoom.RoomID,
+                    StartTime = TextUtil.ConvertStringToTime(formData.SlotStart4),
+                    EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd4)
+                };
+                listSlotAdd.Add(slot4);
+            }
+
+            await _context.Slots.AddRangeAsync(listSlotAdd);
+            await _context.SaveChangesAsync();
+
+            return Ok(ResponseHandle<Room>.Success(oldRoom));
+        }
+
+        // DELETE: api/Room
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<Room>> DeleteRoom(int id)
+        {
+            Room oldRoom = await _context.Rooms.Where(p => p.RoomID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            if (oldRoom == null)
+            {
+                return Ok(ResponseHandle<Room>.Error("Not found party"));
+            }
+
+            oldRoom.Status = Constants.STATUS_INACTIVE;
+            oldRoom.LastUpdateDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Ok(ResponseHandle<Room>.Success(oldRoom));
         }
 
         // POST: api/Room
@@ -148,72 +260,6 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<Room>.Success(room));
         }
 
-        // PUT: api/Room/5
-        [HttpPut]
-        public async Task<IActionResult> PutRoom([FromForm] RoomFormData formData)
-        {
-            var roomOld = await _context.Rooms.FirstOrDefaultAsync(u => u.RoomID == formData.RoomID);
-            if (roomOld == null)
-            {
-                return Ok(ResponseHandle<LoginResponse>.Error("Room is not exists"));
-            }
-
-            string fileName = roomOld.Image;
-            if (formData.Image != null)
-            {
-                // Save the uploaded image to a specific location (or any other processing)
-                fileName = Guid.NewGuid().ToString() + Path.GetExtension(formData.Image.FileName);
-                var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
-                using (var stream = new FileStream(imagePath, FileMode.Create))
-                {
-                    await formData.Image.CopyToAsync(stream);
-                }
-                // Delete old image path: roomOld.Image
-                if (!string.IsNullOrEmpty(roomOld.Image))
-                {
-                    var oldImagePath = Path.Combine(_configuration["ImagePath"], roomOld.Image);
-                    if (System.IO.File.Exists(oldImagePath))
-                    {
-                        System.IO.File.Delete(oldImagePath);
-                    }
-                }
-            }
-
-            // Create the room object and save it to the database
-            roomOld.Type = string.Join(",", formData.Type);
-            roomOld.RoomName = formData.RoomName;
-            roomOld.Description = formData.Description;
-            roomOld.Image = fileName;
-            roomOld.LastUpdateDate = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            return Ok(ResponseHandle<Room>.Success(roomOld));
-        }
-
-        // DELETE: api/Room/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteRoom(int id)
-        {
-            var roomOld = await _context.Rooms.FindAsync(id);
-            if (roomOld == null)
-            {
-                return Ok(ResponseHandle<LoginResponse>.Error("Room is not exists"));
-            }
-
-            if (!string.IsNullOrEmpty(roomOld.Image))
-            {
-                var oldImagePath = Path.Combine(_configuration["ImagePath"], roomOld.Image);
-                if (System.IO.File.Exists(oldImagePath))
-                {
-                    System.IO.File.Delete(oldImagePath);
-                }
-            }
-
-            _context.Rooms.Remove(roomOld);
-            await _context.SaveChangesAsync();
-
-            return Ok(ResponseHandle<Room>.Success(roomOld));
-        }
 
         //API SEARCH ROOM FOR RENT
         [HttpPost("RoomForRent/{page}/{size}/{partyId}")]
@@ -234,6 +280,7 @@ namespace KidProjectServer.Controllers
                             join slot in _context.Slots on room.RoomID equals slot.RoomID
                             where
                                   party.PartyID == partyId &&
+                                  room.Status == Constants.STATUS_ACTIVE &&
                                   (string.IsNullOrEmpty(searchForm.Type) || room.Type.Contains(searchForm.Type)) &&
                                   //(string.IsNullOrEmpty(searchForm.Type) || (room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type)) &&
                                   (string.IsNullOrEmpty(searchForm.SlotTime) || (slot.StartTime <= TextUtil.ConvertStringToTime(searchForm.SlotTime) && slot.EndTime >= TextUtil.ConvertStringToTime(searchForm.SlotTime))) &&

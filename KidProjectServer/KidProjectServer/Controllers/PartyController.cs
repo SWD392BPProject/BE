@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
 using System.Globalization;
@@ -68,29 +69,85 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<Party>.Success(Party));
         }
 
+        // PUT: api/Party
+        [HttpPut]
+        public async Task<ActionResult<Party>> PutParty([FromForm] PartyFormData formData)
+        {
+            Party oldParty = await _context.Parties.Where(p => p.PartyID == formData.PartyID).FirstOrDefaultAsync();
+            if (oldParty == null)
+            {
+                return Ok(ResponseHandle<Party>.Error("Not found party"));
+            }
+
+            string fileName = oldParty.Image;
+            if (formData.Image != null && formData.Image.Length > 0)
+            {
+                // Save the uploaded image to a specific location (or any other processing)
+                fileName = Guid.NewGuid().ToString() + Path.GetExtension(formData.Image.FileName);
+                var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
+                using (var stream = new FileStream(imagePath, FileMode.Create))
+                {
+                    await formData.Image.CopyToAsync(stream);
+                }
+                // Delete old image if it exists
+                var oldImagePath = Path.Combine(_configuration["ImagePath"], oldParty.Image);
+                if (System.IO.File.Exists(oldImagePath))
+                {
+                    System.IO.File.Delete(oldImagePath);
+                }
+            }
+
+            oldParty.PartyName = formData.Description;
+            oldParty.Description = formData.PartyName;
+            oldParty.Address = formData.Address;
+            oldParty.Type = formData.Type;
+            oldParty.MenuList = string.Join(",", formData.MenuList);
+            oldParty.Image = fileName;
+            oldParty.LastUpdateDate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(ResponseHandle<Party>.Success(oldParty));
+        }
+
+        // DELETE: api/Party
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<Party>> DeleteParty(int id)
+        {
+            Party oldParty = await _context.Parties.Where(p => p.PartyID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            if (oldParty == null)
+            {
+                return Ok(ResponseHandle<Party>.Error("Not found party"));
+            }
+            oldParty.Status = Constants.STATUS_INACTIVE;
+            oldParty.LastUpdateDate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(ResponseHandle<Party>.Success(oldParty));
+        }
+
         // GET: api/Party/{page}/{size}/{hostId}
         [HttpGet("{page}/{size}/{hostId}")]
         public async Task<ActionResult<IEnumerable<Party>>> GetParties(int page, int size, int hostId)
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Party[] parties = await _context.Parties.Where(p => p.HostUserID == hostId).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Parties.Where(p => p.HostUserID == hostId).CountAsync();
+            Party[] parties = await _context.Parties.Where(p => p.HostUserID == hostId && p.Status == Constants.STATUS_ACTIVE).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Parties.Where(p => p.HostUserID == hostId && p.Status == Constants.STATUS_ACTIVE).CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
         }
-
-        
 
         // GET: /Party/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Party>> GetParty(int id)
         {
-            var party = await _context.Parties.FindAsync(id);
+            var party = await _context.Parties.Where(p => p.PartyID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
 
             if (party == null)
             {
-                return NotFound();
+                return Ok(ResponseHandle<Party>.Error("Not found party"));
             }
 
             return Ok(ResponseHandle<Party>.Success(party));
@@ -102,8 +159,8 @@ namespace KidProjectServer.Controllers
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Party[] parties = await _context.Parties.OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Parties.CountAsync();
+            Party[] parties = await _context.Parties.Where(p => p.Status == Constants.STATUS_ACTIVE).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Parties.Where(p => p.Status == Constants.STATUS_ACTIVE).CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
         }
@@ -114,8 +171,8 @@ namespace KidProjectServer.Controllers
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Party[] parties = await _context.Parties.OrderByDescending(p => p.MonthViewed).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Parties.CountAsync();
+            Party[] parties = await _context.Parties.Where(p => p.Status == Constants.STATUS_ACTIVE).OrderByDescending(p => p.MonthViewed).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Parties.Where(p => p.Status == Constants.STATUS_ACTIVE).CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
         }
@@ -138,6 +195,7 @@ namespace KidProjectServer.Controllers
                             join room in _context.Rooms on user.UserID equals room.HostUserID
                             join slot in _context.Slots on room.RoomID equals slot.RoomID
                             where
+                                  party.Status == Constants.STATUS_ACTIVE &&
                                   (string.IsNullOrEmpty(searchForm.Type) || ((!string.IsNullOrEmpty(searchForm.SlotTime)) || (party.Type == searchForm.Type))) &&
                                   (string.IsNullOrEmpty(searchForm.Type) || ((string.IsNullOrEmpty(searchForm.SlotTime))) || (room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type)) &&
                                   //(string.IsNullOrEmpty(searchForm.Type) || (room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type)) &&
@@ -177,9 +235,12 @@ namespace KidProjectServer.Controllers
         }
     }
 
+
+
     // Define a new class to handle the form data including the image
     public class PartyFormData
     {
+        public int? PartyID { get; set; }
         public int? HostUserID { get; set; }
         public string[] MenuList { get; set; }
         public string? PartyName { get; set; }

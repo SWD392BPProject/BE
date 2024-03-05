@@ -29,6 +29,72 @@ namespace KidProjectServer.Controllers
             _configuration = configuration;
         }
 
+        // GET: api/Menu
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Menu>> GetMenuById(int id)
+        {
+            Menu oldMenu = await _context.Menus.Where(p => p.MenuID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            if (oldMenu == null)
+            {
+                return Ok(ResponseHandle<Menu>.Error("Not found Menu"));
+            }
+            return Ok(ResponseHandle<Menu>.Success(oldMenu));
+        }
+
+        // DELETE: api/Menu
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<Menu>> DeleteMenu(int id)
+        {
+            Menu oldMenu = await _context.Menus.Where(p => p.MenuID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            if (oldMenu == null)
+            {
+                return Ok(ResponseHandle<Menu>.Error("Not found Menu"));
+            }
+
+            oldMenu.Status = Constants.STATUS_INACTIVE;
+            oldMenu.LastUpdateDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return Ok(ResponseHandle<Menu>.Success(oldMenu));
+        }
+
+        // PUT: api/Menu
+        [HttpPut]
+        public async Task<ActionResult<Menu>> PutMenu([FromForm] MenuFormData formData)
+        {
+            Menu oldMenu = await _context.Menus.Where(p => p.MenuID == formData.MenuID && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            if (oldMenu == null)
+            {
+                return Ok(ResponseHandle<Menu>.Error("Not found Menu"));
+            }
+            string fileName = oldMenu.Image;
+            if (formData.Image != null && formData.Image.Length > 0)
+            {
+                // Save the uploaded image to a specific location (or any other processing)
+                fileName = Guid.NewGuid().ToString() + Path.GetExtension(formData.Image.FileName);
+                var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
+                using (var stream = new FileStream(imagePath, FileMode.Create))
+                {
+                    await formData.Image.CopyToAsync(stream);
+                }
+                // Delete old image if it exists
+                var oldImagePath = Path.Combine(_configuration["ImagePath"], oldMenu.Image);
+                if (System.IO.File.Exists(oldImagePath))
+                {
+                    System.IO.File.Delete(oldImagePath);
+                }
+            }
+
+            oldMenu.MenuName = formData.MenuName;
+            oldMenu.Price = formData.Price;
+            oldMenu.Description = formData.Description;
+            oldMenu.Image = fileName;
+            oldMenu.LastUpdateDate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(ResponseHandle<Menu>.Success(oldMenu));
+        }
+
         // POST: api/Menu
         [HttpPost]
         public async Task<ActionResult<Menu>> PostMenu([FromForm] MenuFormData formData)
@@ -68,7 +134,7 @@ namespace KidProjectServer.Controllers
         [HttpGet("byHostId/{hostId}")]
         public async Task<ActionResult<IEnumerable<Menu>>> GetByHostId(int hostId)
         {
-            Menu[] menus = await _context.Menus.Where(p => p.HostUserID == hostId).OrderByDescending(p => p.CreateDate).ToArrayAsync();
+            Menu[] menus = await _context.Menus.Where(p => p.HostUserID == hostId && p.Status == Constants.STATUS_ACTIVE).OrderByDescending(p => p.CreateDate).ToArrayAsync();
             return Ok(ResponseArrayHandle<Menu>.Success(menus));
         }
 
@@ -81,7 +147,7 @@ namespace KidProjectServer.Controllers
                            on menu.MenuID equals menu_parties.MenuID
                            join party in _context.Parties
                            on menu_parties.PartyID equals party.PartyID
-                           where party.PartyID == partyId
+                           where party.PartyID == partyId && menu.Status == Constants.STATUS_ACTIVE
                            select menu;
             Menu[] menus = await query.ToArrayAsync();
             return Ok(ResponseArrayHandle<Menu>.Success(menus));
@@ -92,8 +158,8 @@ namespace KidProjectServer.Controllers
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Menu[] menuss = await _context.Menus.Where(p => p.HostUserID == hostId).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Menus.Where(p => p.HostUserID == hostId).CountAsync();
+            Menu[] menuss = await _context.Menus.Where(p => p.HostUserID == hostId && p.Status == Constants.STATUS_ACTIVE).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Menus.Where(p => p.HostUserID == hostId && p.Status == Constants.STATUS_ACTIVE).CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Menu>.Success(menuss, totalPage));
         }
@@ -103,6 +169,7 @@ namespace KidProjectServer.Controllers
     // Define a new class to handle the form data including the image
     public class MenuFormData
     {
+        public int? MenuID { get; set; }
         public int? HostUserID { get; set; }
         public string? MenuName { get; set; }
         public string? Description { get; set; }
