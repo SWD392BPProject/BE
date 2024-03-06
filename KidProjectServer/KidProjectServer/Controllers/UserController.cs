@@ -25,6 +25,103 @@ namespace KidProjectServer.Controllers
             _configuration = configuration;
         }
 
+        [HttpPut("updateInfo")]
+        public async Task<IActionResult> UpdateUserInfo([FromForm] RegisterUserForm userDto)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userDto.FullName)
+                || string.IsNullOrEmpty(userDto.PhoneNumber)
+                || string.IsNullOrEmpty(userDto.Email))
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("Invalid info user to register"));
+                }
+
+                var userOld = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userDto.UserID);
+                if (userOld == null)
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("User not found"));
+                }
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userDto.Email && u.UserID != userDto.UserID);
+                if (user != null)
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("Email already in exists"));
+                }
+                string fileName = userOld.Image;
+                if (userDto.Image != null)
+                {
+                    fileName = Guid.NewGuid().ToString() + Path.GetExtension(userDto.Image.FileName);
+                    var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
+                    using (var stream = new FileStream(imagePath, FileMode.Create))
+                    {
+                        await userDto.Image.CopyToAsync(stream);
+                    }
+                    // Delete old image if it exists
+                    var oldImagePath = Path.Combine(_configuration["ImagePath"], userOld.Image);
+                    if (System.IO.File.Exists(oldImagePath))
+                    {
+                        System.IO.File.Delete(oldImagePath);
+                    }
+                }
+
+                userOld.Image = fileName;
+                userOld.FullName = userDto.FullName;
+                userOld.PhoneNumber = userDto.PhoneNumber;
+                userOld.Email = userDto.Email;
+                userOld.LastUpdateDate = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(ResponseHandle<User>.Success(userOld));
+            }
+            catch (Exception e)
+            {
+                return Ok(ResponseHandle<LoginResponse>.Error("Error occur in server"));
+            }
+        }
+
+        [HttpPut("changePW")]
+        public async Task<IActionResult> ChangePassword([FromForm] ChangePWForm userDto)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userDto.OldPassword)
+                || string.IsNullOrEmpty(userDto.NewPassword)
+                || string.IsNullOrEmpty(userDto.UserID.ToString()))
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("Invalid info user to register"));
+                }
+
+                if (userDto.NewPassword.Length < 6)
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("New Password must contain at least 6 characters."));
+                }
+
+                var userOld = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userDto.UserID);
+                if (userOld == null)
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("User not found"));
+                }
+
+                if (!VerifyPassword(userOld.Password, userDto.OldPassword))
+                {
+                    return Ok(ResponseHandle<LoginResponse>.Error("Incorect current password"));
+                }
+
+                userOld.Password = HashPassword(userDto.NewPassword);
+                userOld.LastUpdateDate = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(ResponseHandle<User>.Success(userOld));
+            }
+            catch (Exception e)
+            {
+                return Ok(ResponseHandle<LoginResponse>.Error("Error occur in server"));
+            }
+        }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromForm] RegisterUserForm userDto)
         {
@@ -180,16 +277,15 @@ namespace KidProjectServer.Controllers
 
         // GET: /user/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUser(string id)
+        public async Task<ActionResult<User>> GetUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
-
+            User user = await _context.Users.Where(p => p.UserID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
             if (user == null)
             {
-                return NotFound();
+                return Ok(ResponseHandle<User>.Error("User not found"));
             }
+            return Ok(ResponseHandle<User>.Success(user));
 
-            return user;
         }
 
         // POST: /user
@@ -296,14 +392,21 @@ namespace KidProjectServer.Controllers
         public string Role { get; set; }
         public string Token { get; set; }
     }
+    public class ChangePWForm
+    {
+        public int? UserID { get; set; }
+        public string? OldPassword { get; set; }
+        public string? NewPassword { get; set; }
+    }
 
     public class RegisterUserForm
     {
-        public string FullName { get; set; }
-        public string Email { get; set; }
-        public string PhoneNumber { get; set; }
-        public string Password { get; set; }
-        public string Role { get; set; }
+        public int? UserID { get; set; }
+        public string? FullName { get; set; }
+        public string? Email { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? Password { get; set; }
+        public string? Role { get; set; }
         public IFormFile? Image { get; set; }
     }
 
