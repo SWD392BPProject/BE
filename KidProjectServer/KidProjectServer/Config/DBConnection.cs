@@ -16,5 +16,6 @@ namespace KidProjectServer.Config
         public DbSet<Menu> Menus { get; set; }
         public DbSet<MenuParty> MenuParty { get; set; }
         public DbSet<Booking> Bookings { get; set; }
+        public DbSet<PackageOrder> PackageOrders { get; set; }
     }
 }

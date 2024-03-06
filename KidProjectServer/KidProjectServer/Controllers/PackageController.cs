@@ -29,27 +29,62 @@ namespace KidProjectServer.Controllers
         }
 
         // GET: api/Package/{page}/{size}
-        [HttpGet("{page}/{size}/{hostId}")]
-        public async Task<ActionResult<IEnumerable<Package>>> GetPackages(int page, int size, int hostId)
-        {
-            int offset = 0;
-            PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Package[] packages = await _context.Packages.Where(p => p.AdminUserID == hostId).OrderBy(p => p.ActiveDays).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Packages.Where(p => p.AdminUserID == hostId).CountAsync();
-            int totalPage = (int)Math.Ceiling((double)countTotal / size);
-            return Ok(ResponseArrayHandle<Package>.Success(packages, totalPage));
-        }
-
-        // GET: api/Package/{page}/{size}
         [HttpGet("{page}/{size}")]
         public async Task<ActionResult<IEnumerable<Package>>> GetPackages(int page, int size)
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Package[] packages = await _context.Packages.Skip(offset).Take(size).OrderByDescending(p => p.CreateDate).ToArrayAsync();
-            int countTotal = await _context.Packages.CountAsync();
+            Package[] packages = await _context.Packages.Where(p => p.Status == Constants.STATUS_ACTIVE).Skip(offset).Take(size).OrderByDescending(p => p.CreateDate).ToArrayAsync();
+            int countTotal = await _context.Packages.Where(p => p.Status == Constants.STATUS_ACTIVE).CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Package>.Success(packages, totalPage));
+        }
+
+        [HttpPost("createOrder")]
+        public async Task<ActionResult<IEnumerable<PackageOrder>>> CreatePackageOrder([FromForm] OrderPackageForm order)
+        {
+            Package package = await _context.Packages.Where(p => p.PackageID == order.PackageID && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            if (package == null)
+            {
+                return Ok(ResponseArrayHandle<PackageOrder>.Error("Package not found"));
+            }
+            User user = await _context.Users.Where(p => p.UserID == order.UserID && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            if (user == null)
+            {
+                return Ok(ResponseArrayHandle<Package>.Error("User not found"));
+            }
+
+            PackageOrder packageOrders = new PackageOrder
+            {
+                PackageID = package.PackageID,
+                UserID = user.UserID,
+                PackageName = package.PackageName,
+                PackageDescription = package.Description,
+                PackagePrice = package.Price,
+                ActiveDays = package.ActiveDays,
+                PaymentAmount = package.Price,
+                CreateDate = DateTime.UtcNow,
+                LastUpdateDate = DateTime.UtcNow,
+                Status = Constants.BOOKING_STATUS_CREATE,
+            };
+
+            _context.PackageOrders.Add(packageOrders);
+            await _context.SaveChangesAsync();
+
+            return Ok(ResponseHandle<PackageOrder>.Success(packageOrders));
+        }
+
+        // GET: api/Package/orderId/5
+        [HttpGet("orderId/{id}")]
+        public async Task<ActionResult<PackageOrder>> GetOrderPackage(int id)
+        {
+            var package = await _context.PackageOrders.FindAsync(id);
+
+            if (package == null)
+            {
+                return Ok(ResponseHandle<LoginResponse>.Error("Package Not Found"));
+            }
+            return Ok(ResponseHandle<PackageOrder>.Success(package));
         }
 
         // GET: api/Package/5
@@ -106,7 +141,7 @@ namespace KidProjectServer.Controllers
         [HttpPut]
         public async Task<IActionResult> PutPackage([FromForm] PackageFormData formData)
         {
-            var packageOld = await _context.Packages.FirstOrDefaultAsync(u => u.PackageID == formData.PackageID);
+            var packageOld = await _context.Packages.FirstOrDefaultAsync(p => p.PackageID == formData.PackageID && p.Status == Constants.STATUS_ACTIVE);
             if (packageOld == null)
             {
                 return Ok(ResponseHandle<LoginResponse>.Error("Package is not exists"));
@@ -156,16 +191,9 @@ namespace KidProjectServer.Controllers
                 return Ok(ResponseHandle<LoginResponse>.Error("Package is not exists"));
             }
 
-            if (!string.IsNullOrEmpty(packageOld.Image))
-            {
-                var oldImagePath = Path.Combine(_configuration["ImagePath"], packageOld.Image);
-                if (System.IO.File.Exists(oldImagePath))
-                {
-                    System.IO.File.Delete(oldImagePath);
-                }
-            }
+            packageOld.Status = Constants.STATUS_INACTIVE;
+            packageOld.LastUpdateDate = DateTime.UtcNow;
 
-            _context.Packages.Remove(packageOld);
             await _context.SaveChangesAsync();
 
             return Ok(ResponseHandle<Package>.Success(packageOld));
@@ -190,5 +218,9 @@ namespace KidProjectServer.Controllers
         public int Price { get; set; }
     }
 
-
+    public class OrderPackageForm
+    {
+        public int? PackageID { get; set; }
+        public int? UserID { get; set; }
+    }
 }
