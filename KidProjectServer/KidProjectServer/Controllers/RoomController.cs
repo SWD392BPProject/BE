@@ -70,95 +70,103 @@ namespace KidProjectServer.Controllers
         [HttpPut]
         public async Task<ActionResult<Room>> PutRoom([FromForm] RoomFormData formData)
         {
-            Room oldRoom = await _context.Rooms.Where(p => p.RoomID == formData.RoomID && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
-            if (oldRoom == null)
+            try
             {
-                return Ok(ResponseHandle<Room>.Error("Not found room"));
-            }
-
-
-            string fileName = oldRoom.Image;
-            if (formData.Image != null & formData.Image.Length > 0)
-            {
-                // Save the uploaded image to a specific location (or any other processing)
-                fileName = Guid.NewGuid().ToString() + Path.GetExtension(formData.Image.FileName);
-                var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
-                using (var stream = new FileStream(imagePath, FileMode.Create))
+                Room oldRoom = await _context.Rooms.Where(p => p.RoomID == formData.RoomID && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+                if (oldRoom == null)
                 {
-                    await formData.Image.CopyToAsync(stream);
+                    return Ok(ResponseHandle<Room>.Error("Not found room"));
                 }
-                // Delete old image if it exists
-                var oldImagePath = Path.Combine(_configuration["ImagePath"], oldRoom.Image);
-                if (System.IO.File.Exists(oldImagePath))
+
+
+                string fileName = oldRoom.Image;
+                if (formData.Image != null && formData.Image.Length > 0)
                 {
-                    System.IO.File.Delete(oldImagePath);
+                    // Save the uploaded image to a specific location (or any other processing)
+                    fileName = Guid.NewGuid().ToString() + Path.GetExtension(formData.Image.FileName);
+                    var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
+                    using (var stream = new FileStream(imagePath, FileMode.Create))
+                    {
+                        await formData.Image.CopyToAsync(stream);
+                    }
+                    // Delete old image if it exists
+                    var oldImagePath = Path.Combine(_configuration["ImagePath"], oldRoom.Image);
+                    if (System.IO.File.Exists(oldImagePath))
+                    {
+                        System.IO.File.Delete(oldImagePath);
+                    }
                 }
-            }
 
-            oldRoom.RoomName = formData.RoomName;
-            oldRoom.Description = formData.Description;
-            oldRoom.Image = fileName;
-            oldRoom.Type = string.Join(",", formData.Type);
-            oldRoom.MinPeople = formData.MinPeople;
-            oldRoom.MaxPeople = formData.MaxPeople;
-            oldRoom.Price = formData.Price;
-            oldRoom.LastUpdateDate = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            List<Slot> listSlotAdd = new List<Slot>();
-
-            Slot[] slotbyRoomID = await _context.Slots.Where(s => s.RoomID == oldRoom.RoomID).OrderBy(s => s.StartTime).ToArrayAsync();
-
-            if (slotbyRoomID != null && slotbyRoomID.Length > 0)
-            {
-                _context.Slots.RemoveRange(slotbyRoomID);
+                oldRoom.RoomName = formData.RoomName;
+                oldRoom.Description = formData.Description;
+                oldRoom.Image = fileName;
+                oldRoom.Type = string.Join(",", formData.Type);
+                oldRoom.MinPeople = formData.MinPeople;
+                oldRoom.MaxPeople = formData.MaxPeople;
+                oldRoom.Price = formData.Price;
+                oldRoom.LastUpdateDate = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
-            }
 
-            var slot1 = new Slot
-            {
-                RoomID = oldRoom.RoomID,
-                StartTime = TextUtil.ConvertStringToTime(formData.SlotStart1),
-                EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd1)
-            };
-            listSlotAdd.Add(slot1);
+                List<Slot> listSlotAdd = new List<Slot>();
 
-            if (formData.SlotStart2 != null && formData.SlotEnd2 != null)
-            {
-                var slot2 = new Slot
+                Slot[] slotbyRoomID = await _context.Slots.Where(s => s.RoomID == oldRoom.RoomID).ToArrayAsync();
+
+                if (slotbyRoomID != null && slotbyRoomID.Length > 0)
+                {
+                    _context.Slots.RemoveRange(slotbyRoomID);
+                    await _context.SaveChangesAsync();
+                }
+
+                var slot1 = new Slot
                 {
                     RoomID = oldRoom.RoomID,
-                    StartTime = TextUtil.ConvertStringToTime(formData.SlotStart2),
-                    EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd2)
+                    StartTime = TextUtil.ConvertStringToTime(formData.SlotStart1),
+                    EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd1)
                 };
-                listSlotAdd.Add(slot2);
-            }
+                listSlotAdd.Add(slot1);
 
-            if (formData.SlotStart3 != null && formData.SlotEnd3 != null)
-            {
-                var slot3 = new Slot
+                if (formData.SlotStart2 != null && formData.SlotEnd2 != null)
                 {
-                    RoomID = oldRoom.RoomID,
-                    StartTime = TextUtil.ConvertStringToTime(formData.SlotStart3),
-                    EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd3)
-                };
-                listSlotAdd.Add(slot3);
-            }
-            if (formData.SlotStart4 != null && formData.SlotEnd4 != null)
-            {
-                var slot4 = new Slot
+                    var slot2 = new Slot
+                    {
+                        RoomID = oldRoom.RoomID,
+                        StartTime = TextUtil.ConvertStringToTime(formData.SlotStart2),
+                        EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd2)
+                    };
+                    listSlotAdd.Add(slot2);
+                }
+
+                if (formData.SlotStart3 != null && formData.SlotEnd3 != null)
                 {
-                    RoomID = oldRoom.RoomID,
-                    StartTime = TextUtil.ConvertStringToTime(formData.SlotStart4),
-                    EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd4)
-                };
-                listSlotAdd.Add(slot4);
+                    var slot3 = new Slot
+                    {
+                        RoomID = oldRoom.RoomID,
+                        StartTime = TextUtil.ConvertStringToTime(formData.SlotStart3),
+                        EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd3)
+                    };
+                    listSlotAdd.Add(slot3);
+                }
+                if (formData.SlotStart4 != null && formData.SlotEnd4 != null)
+                {
+                    var slot4 = new Slot
+                    {
+                        RoomID = oldRoom.RoomID,
+                        StartTime = TextUtil.ConvertStringToTime(formData.SlotStart4),
+                        EndTime = TextUtil.ConvertStringToTime(formData.SlotEnd4)
+                    };
+                    listSlotAdd.Add(slot4);
+                }
+
+                await _context.Slots.AddRangeAsync(listSlotAdd);
+                await _context.SaveChangesAsync();
+
+                return Ok(ResponseHandle<Room>.Success(oldRoom));
             }
-
-            await _context.Slots.AddRangeAsync(listSlotAdd);
-            await _context.SaveChangesAsync();
-
-            return Ok(ResponseHandle<Room>.Success(oldRoom));
+            catch(Exception e)
+            {
+                return Ok(ResponseHandle<Room>.Error("Edit room failed, unknown error"));
+            }
+            
         }
 
         // DELETE: api/Room

@@ -41,6 +41,17 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<Menu>.Success(oldMenu));
         }
 
+        // GET: api/Menu/byPartyId/{id}
+        /*[HttpGet("byPartyId/{id}")]
+        public async Task<ActionResult<Menu>> GetMenuByPartyId(int id)
+        {
+            Menu[] menus = await (from menu_party in _context.MenuParty
+                              join menu in _context.Menus on menu_party.MenuID equals menu.MenuID
+                              where menu_party.PartyID == id
+                              select menu).ToArrayAsync();
+            return Ok(ResponseArrayHandle<Menu>.Success(menus));
+        }
+*/
         // DELETE: api/Menu
         [HttpDelete("{id}")]
         public async Task<ActionResult<Menu>> DeleteMenu(int id)

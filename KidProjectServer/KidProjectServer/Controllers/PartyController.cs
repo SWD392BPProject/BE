@@ -55,15 +55,29 @@ namespace KidProjectServer.Controllers
                 Address = formData.Address,
                 Type = string.Join(",", formData.Type),
                 MonthViewed = 0,
-                MenuList = string.Join(",", formData.MenuList),
                 Image = fileName, // Save the image path to the database
                 HostUserID = formData.HostUserID,
                 CreateDate = DateTime.UtcNow,
                 LastUpdateDate = DateTime.UtcNow,
                 Status = Constants.STATUS_ACTIVE
             };
-
             _context.Parties.Add(Party);
+            await _context.SaveChangesAsync();
+
+            List<MenuParty> listMenuPartyAdd = new List<MenuParty>();
+            for (int i = 0; i < formData.MenuList.Count(); i++)
+            {
+                MenuParty menuParty = new MenuParty
+                {
+                    MenuID = int.Parse(formData.MenuList[i]),
+                    PartyID = Party.PartyID,
+                };
+                listMenuPartyAdd.Add(menuParty);
+            }
+            if(listMenuPartyAdd.Count > 0)
+            {
+                await _context.MenuParty.AddRangeAsync(listMenuPartyAdd);
+            }
             await _context.SaveChangesAsync();
 
             return Ok(ResponseHandle<Party>.Success(Party));
@@ -97,14 +111,36 @@ namespace KidProjectServer.Controllers
                 }
             }
 
-            oldParty.PartyName = formData.Description;
-            oldParty.Description = formData.PartyName;
+            oldParty.PartyName = formData.PartyName;
+            oldParty.Description = formData.Description;
             oldParty.Address = formData.Address;
             oldParty.Type = formData.Type;
-            oldParty.MenuList = string.Join(",", formData.MenuList);
             oldParty.Image = fileName;
             oldParty.LastUpdateDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
 
+            MenuParty[] menuPartyOld = await _context.MenuParty.Where(s => s.PartyID == oldParty.PartyID).ToArrayAsync();
+
+            if (menuPartyOld != null && menuPartyOld.Length > 0)
+            {
+                _context.MenuParty.RemoveRange(menuPartyOld);
+                await _context.SaveChangesAsync();
+            }
+
+            List<MenuParty> listMenuPartyAdd = new List<MenuParty>();
+            for (int i = 0; i < formData.MenuList.Count(); i++)
+            {
+                MenuParty menuParty = new MenuParty
+                {
+                    MenuID = int.Parse(formData.MenuList[i]),
+                    PartyID = oldParty.PartyID,
+                };
+                listMenuPartyAdd.Add(menuParty);
+            }
+            if (listMenuPartyAdd.Count > 0)
+            {
+                await _context.MenuParty.AddRangeAsync(listMenuPartyAdd);
+            }
             await _context.SaveChangesAsync();
 
             return Ok(ResponseHandle<Party>.Success(oldParty));
