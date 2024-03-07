@@ -1,17 +1,17 @@
-﻿namespace KidProjectServer.Entities
+﻿using KidProjectServer.Entities;
+
+namespace KidProjectServer.Entities
 {
     public class Voucher
     {
         public int? VoucherID { get; set; }
-        public int? HostUserID { get; set; }
+        public int? UserID { get; set; }
         public string? VoucherCode { get; set; }
-        public string? Description { get; set; }
-        public string? Address { get; set; }
-        public string? Type { get; set; }
-        public string? Image { get; set; }
-        public DateTime? CreateDate { get; set; }
-        public DateTime? LastUpdateDate { get; set; }
+        public int? PackageID { get; set; }
+        public int? DiscountAmount { get; set; }
+        public int? DiscountPercent { get; set; }
+        public DateTime? ExpiryDate { get; set; }
+        public int? DiscountMax { get; set; }
         public string? Status { get; set; }
     }
 }
-

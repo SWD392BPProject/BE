@@ -74,6 +74,43 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<PackageOrder>.Success(packageOrders));
         }
 
+        [HttpGet("changeStatus/{id}/{status}")]
+        public async Task<ActionResult<IEnumerable<PackageOrder>>> ChangeStatusBooking(int id, string status)
+        {
+            PackageOrder packageOrder = await _context.PackageOrders.Where(p => p.PackageOrderID == id).FirstOrDefaultAsync();
+
+            if (packageOrder == null)
+            {
+                return Ok(ResponseHandle<PackageOrder>.Error("Package order not found"));
+            }
+
+            packageOrder.Status = status;
+            await _context.SaveChangesAsync();
+
+            if(status == Constants.BOOKING_STATUS_PAID)
+            {
+                if (packageOrder.VoucherID != null)
+                {
+                    Voucher voucher = await _context.Vouchers.FindAsync(packageOrder.VoucherID);
+                    voucher.Status = Constants.STATUS_INACTIVE;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            return Ok(ResponseHandle<PackageOrder>.Success(packageOrder));
+        }
+
+        [HttpGet("ordersByUserID/{userId}/{page}/{size}")]
+        public async Task<ActionResult<IEnumerable<PackageOrder>>> GetOrdersByUserID(int userId, int page, int size)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            PackageOrder[] packages = await _context.PackageOrders.Where(p => p.UserID == userId).Skip(offset).Take(size).OrderByDescending(p => p.CreateDate).ToArrayAsync();
+            int countTotal = await _context.PackageOrders.Where(p => p.UserID == userId).CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<PackageOrder>.Success(packages, totalPage));
+        }
+
         // GET: api/Package/orderId/5
         [HttpGet("orderId/{id}")]
         public async Task<ActionResult<PackageOrder>> GetOrderPackage(int id)
