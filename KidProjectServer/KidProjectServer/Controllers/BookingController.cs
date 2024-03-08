@@ -50,6 +50,21 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseArrayHandle<Booking>.Success(bookings));
         }
 
+        [HttpGet("byBookingDate/{hostId}/{date}")]
+        public async Task<ActionResult<IEnumerable<Booking>>> GetByBookingDate(int hostId, string date)
+        {
+            DateTime? bookingDate = null;
+            if (date != null)
+            {
+                bookingDate = DateTime.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            }
+            Booking[] results = await (from bookings in _context.Bookings
+                               join parties in _context.Parties on bookings.PartyID equals parties.PartyID
+                               where parties.HostUserID == hostId &&
+                               bookings.BookingDate == bookingDate select bookings).ToArrayAsync();
+            return Ok(ResponseArrayHandle<Booking>.Success(results));
+        }
+
         [HttpGet("changeStatus/{id}/{status}")]
         public async Task<ActionResult<IEnumerable<Booking>>> ChangeStatusBooking(int id, string status)
         {
