@@ -9,8 +9,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
+using System.Drawing;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
+using System.IO;
 using System.Reflection.Metadata;
 using System.Security.Claims;
 using System.Text;
@@ -179,6 +181,27 @@ namespace KidProjectServer.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Party>> GetParty(int id)
         {
+            var query = from parties in _context.Parties
+                        join packageOrders in _context.PackageOrders on parties.HostUserID equals packageOrders.UserID
+                        where packageOrders.Status == Constants.BOOKING_STATUS_PAID && 
+                        packageOrders.CreateDate > DateTime.UtcNow.AddDays(-(double)packageOrders.ActiveDays) &&
+                        parties.Status == Constants.STATUS_ACTIVE &&
+                        parties.PartyID == id
+                        select parties;
+
+            Party partyobj = await query.FirstOrDefaultAsync();
+            if (partyobj == null)
+            {
+                return Ok(ResponseHandle<Party>.Error("Not found party"));
+            }
+
+            return Ok(ResponseHandle<Party>.Success(partyobj));
+        }
+
+        // GET: /Party/5
+        [HttpGet("host/{id}")]
+        public async Task<ActionResult<Party>> GetPartyInHost(int id)
+        {
             var party = await _context.Parties.Where(p => p.PartyID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
 
             if (party == null)
@@ -207,8 +230,12 @@ namespace KidProjectServer.Controllers
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Party[] parties = await _context.Parties.Where(p => p.Status == Constants.STATUS_ACTIVE).OrderByDescending(p => p.MonthViewed).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Parties.Where(p => p.Status == Constants.STATUS_ACTIVE).CountAsync();
+            var query = from party in _context.Parties
+                        join packageOrders in _context.PackageOrders on party.HostUserID equals packageOrders.UserID
+                        where packageOrders.Status == Constants.BOOKING_STATUS_PAID && packageOrders.CreateDate > DateTime.UtcNow.AddDays(-(double)packageOrders.ActiveDays)
+                        select party;
+            Party[] parties = await query.OrderByDescending(p => p.MonthViewed).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await query.CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
         }
@@ -230,8 +257,10 @@ namespace KidProjectServer.Controllers
                             join user in _context.Users on party.HostUserID equals user.UserID
                             join room in _context.Rooms on user.UserID equals room.HostUserID
                             join slot in _context.Slots on room.RoomID equals slot.RoomID
+                            join packageOrders in _context.PackageOrders on party.HostUserID equals packageOrders.UserID
                             where
                                   party.Status == Constants.STATUS_ACTIVE &&
+                                  packageOrders.Status == Constants.BOOKING_STATUS_PAID && packageOrders.CreateDate > DateTime.UtcNow.AddDays(-(double)packageOrders.ActiveDays) &&
                                   (string.IsNullOrEmpty(searchForm.Type) || ((!string.IsNullOrEmpty(searchForm.SlotTime)) || (party.Type == searchForm.Type))) &&
                                   (string.IsNullOrEmpty(searchForm.Type) || ((string.IsNullOrEmpty(searchForm.SlotTime))) || (room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type)) &&
                                   //(string.IsNullOrEmpty(searchForm.Type) || (room.Type.Contains(searchForm.Type) && party.Type == searchForm.Type)) &&

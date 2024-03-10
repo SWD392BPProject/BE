@@ -51,18 +51,33 @@ namespace KidProjectServer.Controllers
         }
 
         [HttpGet("byBookingDate/{hostId}/{date}")]
-        public async Task<ActionResult<IEnumerable<Booking>>> GetByBookingDate(int hostId, string date)
+        public async Task<ActionResult<IEnumerable<BookingDto>>> GetByBookingDate(int hostId, string date)
         {
             DateTime? bookingDate = null;
             if (date != null)
             {
                 bookingDate = DateTime.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture);
             }
-            Booking[] results = await (from bookings in _context.Bookings
+            BookingDto[] results = await (from bookings in _context.Bookings
                                join parties in _context.Parties on bookings.PartyID equals parties.PartyID
+                               join users in _context.Users on bookings.UserID equals users.UserID
                                where parties.HostUserID == hostId &&
-                               bookings.BookingDate == bookingDate select bookings).ToArrayAsync();
-            return Ok(ResponseArrayHandle<Booking>.Success(results));
+                               bookings.BookingDate == bookingDate select new BookingDto
+                               {
+                                   BookingID = bookings.BookingID,
+                                   FullName = users.FullName,
+                                   PhoneNumber = users.PhoneNumber,
+                                   PartyName = bookings.PartyName,
+                                   Image = parties.Image,
+                                   RoomName = bookings.RoomName,
+                                   SlotTimeStart = bookings.SlotTimeStart,
+                                   SlotTimeEnd = bookings.SlotTimeEnd,
+                                   MenuDescription = bookings.MenuDescription,
+                                   DiningTable = bookings.DiningTable,
+                                   PaymentAmount = bookings.PaymentAmount,
+                                   Status = bookings.Status,
+                               }).ToArrayAsync();
+            return Ok(ResponseArrayHandle<BookingDto>.Success(results));
         }
 
         [HttpGet("changeStatus/{id}/{status}")]
@@ -142,4 +157,22 @@ namespace KidProjectServer.Controllers
         public int? DiningTable { get; set; }
     }
 
+    public class BookingDto
+    {
+        public int? BookingID { get; set; }
+        public string? FullName { get; set; }
+        public string? PhoneNumber { get; set; }
+        public string? PartyName { get; set; }
+        public string? Image { get; set; }
+        public string? RoomName { get; set; }
+        public TimeSpan? SlotTimeStart { get; set; }
+        public TimeSpan? SlotTimeEnd { get; set; }
+        public string? MenuDescription { get; set; }
+        public int? DiningTable { get; set; }
+        public int? PaymentAmount { get; set; }
+        public string? Status { get; set; }
+    }
+
 }
+
+

@@ -65,6 +65,26 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<Feedback>.Success(feedback));
         }
 
+        [HttpGet("byPartyId/{partyId}")]
+        public async Task<ActionResult<IEnumerable<FeedbackDto>>> GetFeedbackByPartyID(int partyId)
+        {
+            var query = from feedbacks in _context.Feedbacks
+                        join bookings in _context.Bookings on feedbacks.BookingID equals bookings.BookingID
+                        join users in _context.Users on feedbacks.UserID equals users.UserID
+                        where bookings.PartyID == partyId
+                        select new FeedbackDto
+                        {
+                            FeedbackID = feedbacks.FeedbackID,
+                            BookingID = feedbacks.BookingID,
+                            Image = users.Image,
+                            Rating = feedbacks.Rating,
+                            Comment = feedbacks.Comment,
+                            CreateDate = feedbacks.CreateDate
+                        };
+            FeedbackDto[] feedbacks1 = await query.ToArrayAsync();
+            return Ok(ResponseArrayHandle<FeedbackDto>.Success(feedbacks1));
+        }
+
 
 
     }
@@ -78,4 +98,15 @@ public class FeedbackFormValues
     public int? BookingID { get; set; }
     public int? Rating { get; set; }
     public string? Comment { get; set; }
+}
+
+public class FeedbackDto
+{
+    public int? FeedbackID { get; set; }
+    public int? BookingID { get; set; }
+    public string? Image { get; set; }
+    public int? Rating { get; set; }
+    public string? Comment { get; set; }
+    public DateTime? CreateDate { get; set; }
+
 }

@@ -275,6 +275,10 @@ namespace KidProjectServer.Controllers
         {
             try
             {
+                if(searchForm == null)
+                {
+                    return Ok(ResponseArrayHandle<Room>.Error("search condition can not be empty"));
+                }
                 int offset = 0;
                 PagingUtil.GetPageSize(ref page, ref size, ref offset);
                 DateTime? bookingDate = null;
@@ -282,6 +286,7 @@ namespace KidProjectServer.Controllers
                 {
                     bookingDate = DateTime.ParseExact(searchForm.DateBooking, "yyyy-MM-dd", CultureInfo.InvariantCulture);
                 }
+                string peopleStr = searchForm.People != null ? searchForm.People.ToString() : "";
                 var query = from party in _context.Parties
                             join user in _context.Users on party.HostUserID equals user.UserID
                             join room in _context.Rooms on user.UserID equals room.HostUserID

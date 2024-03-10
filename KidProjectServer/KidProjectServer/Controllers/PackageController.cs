@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
 using System.IdentityModel.Tokens.Jwt;
@@ -26,6 +27,17 @@ namespace KidProjectServer.Controllers
         {
             _context = context;
             _configuration = configuration;
+        }
+
+        [HttpGet("checkPackage/{hostId}")]
+        public async Task<ActionResult<IEnumerable<Boolean>>> CheckIsBuyPackage(int hostId)
+        {
+            PackageOrder[] packageOrders = await _context.PackageOrders.Where(p => p.UserID == hostId && p.Status == Constants.BOOKING_STATUS_PAID && p.CreateDate > DateTime.UtcNow.AddDays(-(double)p.ActiveDays)).ToArrayAsync();
+            if(packageOrders != null && packageOrders.Length > 0)
+            {
+                return Ok(ResponseHandle<Boolean>.Success(true));
+            }
+            return Ok(ResponseHandle<Boolean>.Success(false));
         }
 
         // GET: api/Package/{page}/{size}
