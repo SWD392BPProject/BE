@@ -90,6 +90,53 @@ namespace KidProjectServer.Controllers
                 return Ok(ResponseHandle<Booking>.Error("Booking not found"));
             }
 
+            if(status == Constants.BOOKING_STATUS_PAID)
+            {
+                //month statistic order paid
+                int currentMonth = DateTime.UtcNow.Month;
+                int currentYear = DateTime.UtcNow.Year;
+                Statistic ordersStatistic = await _context.Statistics.Where(
+                p => p.Month == currentMonth &&
+                p.Year == currentYear &&
+                p.Type == Constants.TYPE_ORDER_PAID).FirstOrDefaultAsync();
+                if (ordersStatistic == null)
+                {
+                    ordersStatistic = new Statistic
+                    {
+                        Month = currentMonth,
+                        Year = currentYear,
+                        Amount = 1 * 0.5m,
+                        Type = Constants.TYPE_ORDER_PAID
+                    };
+                    _context.Add(ordersStatistic);
+                }
+                else
+                {
+                    var value = 1 * 0.5m;
+                    ordersStatistic.Amount += value;
+                }
+                //month statistic revenue booking
+                Statistic revenueBookingsStatistic = await _context.Statistics.Where(
+                p => p.Month == currentMonth &&
+                p.Year == currentYear &&
+                p.Type == Constants.TYPE_REVENUE_BOOKING).FirstOrDefaultAsync();
+                if (revenueBookingsStatistic == null)
+                {
+                    revenueBookingsStatistic = new Statistic
+                    {
+                        Month = currentMonth,
+                        Year = currentYear,
+                        Amount = booking.PaymentAmount * 0.5m,
+                        Type = Constants.TYPE_REVENUE_BOOKING
+                    };
+                    _context.Add(revenueBookingsStatistic);
+                }
+                else
+                {
+                    revenueBookingsStatistic.Amount += booking.PaymentAmount * 0.5m;
+                }
+            }
+
             booking.Status = status;
             await _context.SaveChangesAsync();
             return Ok(ResponseHandle<Booking>.Success(booking));

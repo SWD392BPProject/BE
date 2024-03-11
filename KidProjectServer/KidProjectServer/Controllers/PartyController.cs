@@ -150,7 +150,43 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<Party>.Success(oldParty));
         }
 
-        // DELETE: api/Party
+        [HttpGet("updateViewed/{id}")]
+        public async Task<ActionResult<Party>> UpdateViewed(int id)
+        {
+            Party oldParty = await _context.Parties.Where(p => p.PartyID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            if (oldParty == null)
+            {
+                return Ok(ResponseHandle<Party>.Error("Not found party"));
+            }
+            oldParty.MonthViewed += 1;
+
+            //month statistic viewed
+            int currentMonth = DateTime.UtcNow.Month;
+            int currentYear = DateTime.UtcNow.Year;
+            Statistic monthStatistic = await _context.Statistics.Where(
+                p => p.Month == currentMonth && 
+                p.Year == currentYear &&
+                p.Type == Constants.TYPE_VIEW).FirstOrDefaultAsync();
+            if (monthStatistic == null)
+            {
+                monthStatistic = new Statistic
+                {
+                    Month = currentMonth,
+                    Year = currentYear,
+                    Amount = 1 * 0.5m,
+                    Type = Constants.TYPE_VIEW
+                };
+                _context.Add(monthStatistic);
+            }
+            else
+            {
+                monthStatistic.Amount += 1 * 0.5m;
+            }
+            await _context.SaveChangesAsync();
+
+            return Ok(ResponseHandle<Party>.Success(oldParty));
+        }
+
         [HttpDelete("{id}")]
         public async Task<ActionResult<Party>> DeleteParty(int id)
         {

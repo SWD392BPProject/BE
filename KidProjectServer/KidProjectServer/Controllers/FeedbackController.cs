@@ -48,6 +48,29 @@ namespace KidProjectServer.Controllers
                     Status = Constants.STATUS_ACTIVE
                 };
                 _context.Feedbacks.Add(feedback);
+
+                //month statistic rating
+                int currentMonth = DateTime.UtcNow.Month;
+                int currentYear = DateTime.UtcNow.Year;
+                Statistic monthStatistic = await _context.Statistics.Where(
+                p => p.Month == currentMonth &&
+                p.Year == currentYear &&
+                p.Type == Constants.TYPE_RATING).FirstOrDefaultAsync();
+                if (monthStatistic == null)
+                {
+                    monthStatistic = new Statistic
+                    {
+                        Month = currentMonth,
+                        Year = currentYear,
+                        Amount = 1,
+                        Type = Constants.TYPE_RATING
+                    };
+                    _context.Add(monthStatistic);
+                }
+                else
+                {
+                    monthStatistic.Amount += 1;
+                }
             }
             else
             {

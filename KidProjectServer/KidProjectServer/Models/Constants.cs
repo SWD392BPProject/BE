@@ -6,6 +6,14 @@
         static public string STATUS_ACTIVE = "Active";
         static public string STATUS_INACTIVE = "Inactive";
 
+        /* STATISTIC TYPE */
+        static public string TYPE_VIEW = "View";
+        static public string TYPE_RATING = "Rating";
+        static public string TYPE_ORDER_PAID = "OrderPaid";
+        static public string TYPE_REVENUE_BOOKING = "Revenue";
+        static public string TYPE_REVENUE_PACKAGE = "RevenuePackage";
+
+
         /*BOOKING STATUS*/
         static public string BOOKING_STATUS_CREATE = "Create";
         static public string BOOKING_STATUS_PAID = "Paid";

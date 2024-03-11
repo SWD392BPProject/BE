@@ -19,5 +19,6 @@ namespace KidProjectServer.Config
         public DbSet<PackageOrder> PackageOrders { get; set; }
         public DbSet<Voucher> Vouchers { get; set; }
         public DbSet<Feedback> Feedbacks { get; set; }
+        public DbSet<Statistic> Statistics { get; set; }
     }
 }
