@@ -16,6 +16,7 @@ using System.IO;
 using System.Reflection.Metadata;
 using System.Security.Claims;
 using System.Text;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace KidProjectServer.Controllers
 {
@@ -240,8 +241,25 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
         }
 
-        // GET: api/TopMonth/Party/{page}/{size}
-        [HttpPost("SearchBooking/{page}/{size}")]
+        [HttpPost("searchName")]
+        public async Task<ActionResult<IEnumerable<Party>>> GetSearchNameBooking([FromForm] PartyNameSearchFormData searchForm)
+        {
+            int offset = 0;
+            int page = searchForm.Page;
+            int size = searchForm.Size;
+            string keyword = "";
+            if(searchForm.PartyName != null)
+            {
+                keyword = searchForm.PartyName;
+            }
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            Party[] parties = await _context.Parties.Where(p => p.PartyName.Contains(keyword)).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Parties.Where(p => p.PartyName.Contains(keyword)).CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
+        }
+
+        [HttpPost("searchBooking/{page}/{size}")]
         public async Task<ActionResult<IEnumerable<Party>>> GetSearchBooking(int page, int size, [FromForm] PartySearchFormData searchForm)
         {
             try
@@ -321,6 +339,13 @@ namespace KidProjectServer.Controllers
         public string? DateBooking { get; set; }
         public int? People { get; set; }
         public string? SlotTime { get; set; }
+    }
+
+    public class PartyNameSearchFormData
+    {
+        public string? PartyName { get; set; }
+        public int Page { get; set; }
+        public int Size { get; set; }
     }
 
 }

@@ -1,11 +1,15 @@
 ﻿using KidProjectServer.Config;
 using KidProjectServer.Entities;
 using KidProjectServer.Models;
+using KidProjectServer.Util;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SqlServer.Server;
+using System.Data;
+using System.Drawing;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -24,6 +28,51 @@ namespace KidProjectServer.Controllers
             _context = context;
             _configuration = configuration;
         }
+
+        [HttpGet("byRole/{role}/{page}/{size}")]
+        public async Task<IActionResult> GetUserByRole(string role, int page, int size)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            User[] users = await _context.Users.Where(p => p.Role == role).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await _context.Users.Where(p => p.Role == role).CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<User>.Success(users, totalPage));
+        }
+
+        [HttpGet("changeStatus/{userId}/{status}")]
+        public async Task<IActionResult> ChangeStatus(int userId, string status)
+        {
+            User user = await _context.Users.Where(p => p.UserID == userId).FirstOrDefaultAsync();
+            if (user == null)
+            {
+                return Ok(ResponseArrayHandle<User>.Error("User not found"));
+            }
+            user.Status = status;
+            await _context.SaveChangesAsync();
+            return Ok(ResponseHandle<User>.Success(user));
+        }
+
+        [HttpPost("searchUser")]
+        public async Task<IActionResult> SearchUser([FromForm] UserSearchForm searchDto)
+        {
+            int page = searchDto.Page;
+            int size = searchDto.Size;
+            int offset = 0;
+            string keyword = searchDto.Keyword??"";
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            var query = from users in _context.Users
+                        where users.Role == searchDto.Role &&
+                        ((users.FullName != null && users.FullName.Contains(keyword)) ||
+                        (users.PhoneNumber != null && users.PhoneNumber.Contains(keyword)) ||
+                        (users.Email != null && users.Email.Contains(keyword)))
+                        select users;
+            User[] userData = await query.OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await query.CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<User>.Success(userData, totalPage));
+        }
+
 
         [HttpPut("updateInfo")]
         public async Task<IActionResult> UpdateUserInfo([FromForm] RegisterUserForm userDto)
@@ -70,6 +119,10 @@ namespace KidProjectServer.Controllers
                 userOld.PhoneNumber = userDto.PhoneNumber;
                 userOld.Email = userDto.Email;
                 userOld.LastUpdateDate = DateTime.UtcNow;
+                if(userDto.NewPassword != null)
+                {
+                    userOld.Password = HashPassword(userDto.NewPassword);
+                }
 
                 await _context.SaveChangesAsync();
 
@@ -219,6 +272,13 @@ namespace KidProjectServer.Controllers
                     _context.Users.Add(user);
                     await _context.SaveChangesAsync();
                 }
+                else
+                {
+                    if (user.Status == Constants.STATUS_INACTIVE)
+                    {
+                        return Ok(ResponseHandle<LoginResponse>.Error("User has been banned."));
+                    }
+                }
 
                 var token = GenerateJwtToken(user);
                 LoginResponse loginResponse = new LoginResponse
@@ -247,6 +307,10 @@ namespace KidProjectServer.Controllers
             {
                 return Ok(ResponseHandle<LoginResponse>.Error("Incorect username or password"));
             }
+            if (user.Status == Constants.STATUS_INACTIVE)
+            {
+                return Ok(ResponseHandle<LoginResponse>.Error("User has been banned."));
+            }
 
             if (!VerifyPassword(user.Password, loginDto.Password))
             {
@@ -267,19 +331,11 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<LoginResponse>.Success(loginResponse));
         }
 
-
-        // GET: /user
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
-        {
-            return await _context.Users.ToListAsync();
-        }
-
         // GET: /user/5
         [HttpGet("{id}")]
         public async Task<ActionResult<User>> GetUser(int id)
         {
-            User user = await _context.Users.Where(p => p.UserID == id && p.Status == Constants.STATUS_ACTIVE).FirstOrDefaultAsync();
+            User user = await _context.Users.Where(p => p.UserID == id).FirstOrDefaultAsync();
             if (user == null)
             {
                 return Ok(ResponseHandle<User>.Error("User not found"));
@@ -406,6 +462,7 @@ namespace KidProjectServer.Controllers
         public string? Email { get; set; }
         public string? PhoneNumber { get; set; }
         public string? Password { get; set; }
+        public string? NewPassword { get; set; }
         public string? Role { get; set; }
         public IFormFile? Image { get; set; }
     }
@@ -421,5 +478,13 @@ namespace KidProjectServer.Controllers
         public string Email { get; set; }
         public string Password { get; set; }
     }
-    
+
+    public class UserSearchForm
+    {
+        public string? Keyword { get; set; }
+        public string Role { get; set; }
+        public int Page { get; set; }
+        public int Size { get; set; }
+    }
+
 }
