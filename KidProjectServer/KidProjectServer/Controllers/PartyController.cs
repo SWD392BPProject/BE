@@ -58,6 +58,7 @@ namespace KidProjectServer.Controllers
                 Address = formData.Address,
                 Type = string.Join(",", formData.Type),
                 MonthViewed = 0,
+                Rating = 0,
                 Image = fileName, // Save the image path to the database
                 HostUserID = formData.HostUserID,
                 CreateDate = DateTime.UtcNow,
@@ -253,10 +254,18 @@ namespace KidProjectServer.Controllers
                 keyword = searchForm.PartyName;
             }
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Party[] parties = await _context.Parties.Where(p => p.PartyName.Contains(keyword)).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Parties.Where(p => p.PartyName.Contains(keyword)).CountAsync();
+            //Party[] parties = await _context.Parties.Where(p => p.PartyName.Contains(keyword)).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            var query = from parties in _context.Parties
+                        join packageOrders in _context.PackageOrders on parties.HostUserID equals packageOrders.UserID
+                        where parties.PartyName.Contains(keyword) &&
+                        parties.Status == Constants.STATUS_ACTIVE &&
+                        packageOrders.Status == Constants.BOOKING_STATUS_PAID && packageOrders.CreateDate > DateTime.UtcNow.AddDays(-(double)packageOrders.ActiveDays)
+                        select parties;
+
+            Party[] partiesData = await query.OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
+            int countTotal = await query.CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
-            return Ok(ResponseArrayHandle<Party>.Success(parties, totalPage));
+            return Ok(ResponseArrayHandle<Party>.Success(partiesData, totalPage));
         }
 
         [HttpPost("searchBooking/{page}/{size}")]
@@ -291,7 +300,7 @@ namespace KidProjectServer.Controllers
                                       booking.SlotTimeStart <= TextUtil.ConvertStringToTime(searchForm.SlotTime) &&
                                       booking.SlotTimeEnd > TextUtil.ConvertStringToTime(searchForm.SlotTime) &&
                                       booking.RoomID == room.RoomID) ))
-                            group party by new { party.PartyID, party.PartyName, party.Image, party.Address, party.CreateDate, party.Description, party.Type, party.MonthViewed } into grouped
+                            group party by new { party.PartyID, party.PartyName, party.Image, party.Address, party.CreateDate, party.Description, party.Type, party.MonthViewed, party.Rating } into grouped
                             select new Party
                             {
                                 PartyID = grouped.Key.PartyID,
@@ -302,6 +311,7 @@ namespace KidProjectServer.Controllers
                                 Description = grouped.Key.Description,
                                 Type = grouped.Key.Type,
                                 MonthViewed = grouped.Key.MonthViewed,
+                                Rating = grouped.Key.Rating,
                             };
 
                 Party[] parties = await query.Skip(offset).Take(size).ToArrayAsync();

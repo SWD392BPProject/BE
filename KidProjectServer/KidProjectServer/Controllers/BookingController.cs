@@ -47,7 +47,7 @@ namespace KidProjectServer.Controllers
             Booking[] bookings = await _context.Bookings.Where(p => p.UserID == id).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
             int countTotal = await _context.Bookings.Where(p => p.UserID == id).CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
-            return Ok(ResponseArrayHandle<Booking>.Success(bookings));
+            return Ok(ResponseArrayHandle<Booking>.Success(bookings, totalPage));
         }
 
         [HttpGet("byBookingDate/{hostId}/{date}")]

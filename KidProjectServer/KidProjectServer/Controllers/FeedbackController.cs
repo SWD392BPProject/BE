@@ -41,6 +41,7 @@ namespace KidProjectServer.Controllers
                     BookingID = feedbackDto.BookingID,
                     UserID = feedbackDto.UserID,
                     Rating = feedbackDto.Rating,
+                    PartyID = feedbackDto.PartyID,
                     Comment = feedbackDto.Comment,
                     CreateDate = DateTime.UtcNow,
                     LastUpdateDate = DateTime.UtcNow,
@@ -53,8 +54,19 @@ namespace KidProjectServer.Controllers
                 feedback.Comment = feedbackDto.Comment;
                 feedback.Rating = feedbackDto.Rating;
             }
-           
             await _context.SaveChangesAsync();
+
+            Feedback[] feedbacks = await _context.Feedbacks.Where(p => p.PartyID == feedback.PartyID).ToArrayAsync();
+            Party party = await _context.Parties.Where(p => p.PartyID == feedback.PartyID).FirstOrDefaultAsync();
+            int totalRating = 0;
+            foreach (Feedback feed in feedbacks)
+            {
+                totalRating += feed.Rating??0;
+            }
+            int ratingAvg = totalRating / feedbacks.Length;
+            party.Rating = ratingAvg;
+            await _context.SaveChangesAsync();
+
             return Ok(ResponseHandle<Feedback>.Success(feedback));
         }
 
@@ -85,16 +97,13 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseArrayHandle<FeedbackDto>.Success(feedbacks1));
         }
 
-
-
     }
-
-
 }
 
 public class FeedbackFormValues
 {
     public int? UserID { get; set; }
+    public int? PartyID { get; set; }
     public int? BookingID { get; set; }
     public int? Rating { get; set; }
     public string? Comment { get; set; }

@@ -8,6 +8,7 @@ namespace KidProjectServer.Entities
         public int? FeedbackID { get; set; }
         public int? UserID { get; set; }
         public int? BookingID { get; set; }
+        public int? PartyID { get; set; }
         public int? Rating { get; set; }
         public string? Comment { get; set; }
         public DateTime? CreateDate { get; set; }
