@@ -40,7 +40,6 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<Boolean>.Success(false));
         }
 
-        // GET: api/Package/{page}/{size}
         [HttpGet("{page}/{size}")]
         public async Task<ActionResult<IEnumerable<Package>>> GetPackages(int page, int size)
         {
@@ -50,6 +49,29 @@ namespace KidProjectServer.Controllers
             int countTotal = await _context.Packages.Where(p => p.Status == Constants.STATUS_ACTIVE).CountAsync();
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Package>.Success(packages, totalPage));
+        }
+
+        [HttpGet("packageOrder/{page}/{size}")]
+        public async Task<ActionResult<IEnumerable<PackageOrderDto>>> GetPackageOrder(int page, int size)
+        {
+            int offset = 0;
+            PagingUtil.GetPageSize(ref page, ref size, ref offset);
+            var query = from packageOrders in _context.PackageOrders
+                        join users in _context.Users on packageOrders.UserID equals users.UserID
+                        select new PackageOrderDto
+                        {
+                            PackageOrderID = packageOrders.PackageOrderID,
+                            FullName = users.FullName,
+                            PaymentAmount = packageOrders.PaymentAmount,
+                            PackageName = packageOrders.PackageName,
+                            PackagePrice = packageOrders.PackagePrice,
+                            VoucherPrice = packageOrders.VoucherPrice,
+                            CreateDate = packageOrders.CreateDate,
+                        };
+            PackageOrderDto[] packages = await query.Skip(offset).Take(size).OrderByDescending(p => p.CreateDate).ToArrayAsync();
+            int countTotal = await query.CountAsync();
+            int totalPage = (int)Math.Ceiling((double)countTotal / size);
+            return Ok(ResponseArrayHandle<PackageOrderDto>.Success(packages, totalPage));
         }
 
         [HttpPost("createOrder")]
@@ -107,8 +129,51 @@ namespace KidProjectServer.Controllers
                     voucher.Status = Constants.STATUS_INACTIVE;
                     await _context.SaveChangesAsync();
                 }
+                //month statistic order paid
+                int currentMonth = DateTime.UtcNow.Month;
+                int currentYear = DateTime.UtcNow.Year;
+                Statistic ordersStatistic = await _context.Statistics.Where(
+                p => p.Month == currentMonth &&
+                p.Year == currentYear &&
+                p.Type == Constants.TYPE_PACKAGE_PAID).FirstOrDefaultAsync();
+                if (ordersStatistic == null)
+                {
+                    ordersStatistic = new Statistic
+                    {
+                        Month = currentMonth,
+                        Year = currentYear,
+                        Amount = 1 * 0.5m,
+                        Type = Constants.TYPE_PACKAGE_PAID
+                    };
+                    _context.Add(ordersStatistic);
+                }
+                else
+                {
+                    var value = 1 * 0.5m;
+                    ordersStatistic.Amount += value;
+                }
+                //month statistic revenue booking
+                Statistic revenueBookingsStatistic = await _context.Statistics.Where(
+                p => p.Month == currentMonth &&
+                p.Year == currentYear &&
+                p.Type == Constants.TYPE_REVENUE_PACKAGE).FirstOrDefaultAsync();
+                if (revenueBookingsStatistic == null)
+                {
+                    revenueBookingsStatistic = new Statistic
+                    {
+                        Month = currentMonth,
+                        Year = currentYear,
+                        Amount = packageOrder.PaymentAmount * 0.5m,
+                        Type = Constants.TYPE_REVENUE_PACKAGE
+                    };
+                    _context.Add(revenueBookingsStatistic);
+                }
+                else
+                {
+                    revenueBookingsStatistic.Amount += packageOrder.PaymentAmount * 0.5m;
+                }
             }
-
+            await _context.SaveChangesAsync();
             return Ok(ResponseHandle<PackageOrder>.Success(packageOrder));
         }
 
@@ -271,5 +336,16 @@ namespace KidProjectServer.Controllers
     {
         public int? PackageID { get; set; }
         public int? UserID { get; set; }
+    }
+
+    public class PackageOrderDto
+    {
+        public int? PackageOrderID { get; set; }
+        public string? FullName { get; set; }
+        public int? PaymentAmount { get; set; }
+        public string? PackageName { get; set; }
+        public int? PackagePrice { get; set; }
+        public int? VoucherPrice { get; set; }
+        public DateTime? CreateDate { get; set; }
     }
 }

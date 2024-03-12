@@ -299,6 +299,37 @@ namespace KidProjectServer.Controllers
             }
         }
 
+        [HttpGet("topHostParty/{size}")]
+        public async Task<IActionResult> TopHostParty(int size)
+        {
+            // Lấy tháng và năm hiện tại
+            int currentMonth = DateTime.UtcNow.Month;
+            int currentYear = DateTime.UtcNow.Year;
+
+            // Truy vấn LINQ
+            var query = from users in _context.Users
+                        join parties in _context.Parties on users.UserID equals parties.HostUserID
+                        join bookings in _context.Bookings on parties.PartyID equals bookings.PartyID
+                        where bookings.CreateDate != null &&
+                             bookings.CreateDate.Value.Month == currentMonth &&
+                             bookings.CreateDate.Value.Year == currentYear &&
+                             users.Status == Constants.STATUS_ACTIVE
+                        group bookings by users into g
+                        orderby g.Sum(b => b.PaymentAmount) descending
+                        select new UserTopDto
+                        {
+                            UserID = g.Key.UserID,
+                            FullName = g.Key.FullName,
+                            Image = g.Key.Image,
+                            Revenue = g.Sum(b => b.PaymentAmount)
+                        };
+
+            // Lấy 5 user có doanh thu cao nhất
+            var topUsers = await query.Take(size).ToArrayAsync();
+
+            return Ok(ResponseArrayHandle<UserTopDto>.Success(topUsers));
+        }
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromForm] UserLoginDto loginDto)
         {
@@ -486,5 +517,11 @@ namespace KidProjectServer.Controllers
         public int Page { get; set; }
         public int Size { get; set; }
     }
-
+    public class UserTopDto
+    {
+        public int? UserID { get; set; }
+        public string? FullName { get; set; }
+        public string? Image { get; set; }
+        public int? Revenue { get; set; }
+    }
 }

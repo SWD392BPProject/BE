@@ -98,7 +98,7 @@ namespace KidProjectServer.Controllers
                 Statistic ordersStatistic = await _context.Statistics.Where(
                 p => p.Month == currentMonth &&
                 p.Year == currentYear &&
-                p.Type == Constants.TYPE_ORDER_PAID).FirstOrDefaultAsync();
+                p.Type == Constants.TYPE_BOOKING_PAID).FirstOrDefaultAsync();
                 if (ordersStatistic == null)
                 {
                     ordersStatistic = new Statistic
@@ -106,7 +106,7 @@ namespace KidProjectServer.Controllers
                         Month = currentMonth,
                         Year = currentYear,
                         Amount = 1 * 0.5m,
-                        Type = Constants.TYPE_ORDER_PAID
+                        Type = Constants.TYPE_BOOKING_PAID
                     };
                     _context.Add(ordersStatistic);
                 }

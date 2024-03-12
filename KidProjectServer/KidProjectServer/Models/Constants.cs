@@ -9,9 +9,11 @@
         /* STATISTIC TYPE */
         static public string TYPE_VIEW = "View";
         static public string TYPE_RATING = "Rating";
-        static public string TYPE_ORDER_PAID = "OrderPaid";
+        static public string TYPE_BOOKING_PAID = "BookingPaid";
+        static public string TYPE_PACKAGE_PAID = "PackagePaid";
         static public string TYPE_REVENUE_BOOKING = "Revenue";
         static public string TYPE_REVENUE_PACKAGE = "RevenuePackage";
+        static public string[] TYPE_REVENUE_LIST = { TYPE_VIEW, TYPE_RATING, TYPE_BOOKING_PAID, TYPE_PACKAGE_PAID };
 
 
         /*BOOKING STATUS*/
