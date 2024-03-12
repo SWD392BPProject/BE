@@ -15,6 +15,9 @@
         static public string TYPE_REVENUE_PACKAGE = "RevenuePackage";
         static public string[] TYPE_REVENUE_LIST = { TYPE_VIEW, TYPE_RATING, TYPE_BOOKING_PAID, TYPE_PACKAGE_PAID };
 
+        /* FEEDBACK TYPE */
+        static public string TYPE_FEEDBACK = "Feedback";
+        static public string TYPE_REPLY = "Reply";
 
         /*BOOKING STATUS*/
         static public string BOOKING_STATUS_CREATE = "Create";

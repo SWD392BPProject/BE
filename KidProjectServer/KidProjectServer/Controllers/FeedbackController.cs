@@ -30,6 +30,35 @@ namespace KidProjectServer.Controllers
             _configuration = configuration;
         }
 
+        [HttpPost("reply")]
+        public async Task<ActionResult<IEnumerable<Feedback>>> CreateReplyFeedback([FromForm] FeedbackFormValues feedbackDto)
+        {
+            Feedback feedback = await _context.Feedbacks.Where(p => p.FeedbackID == feedbackDto.FeedbackID).FirstOrDefaultAsync();
+            if (feedback == null)
+            {
+                return Ok(ResponseHandle<Feedback>.Error("Not found feedback"));
+            }
+
+            Feedback feedbackReply = new Feedback
+            {
+                FeedbackReplyID = feedback.FeedbackID,
+                UserID = feedbackDto.UserID,
+                PartyID = feedback.PartyID,
+                BookingID = feedback.BookingID,
+                Comment = feedbackDto.Comment,
+                ReplyComment = feedback.Comment,
+                CreateDate = DateTime.UtcNow,
+                LastUpdateDate = DateTime.UtcNow,
+                Type = Constants.TYPE_REPLY,
+                Status = Constants.STATUS_ACTIVE
+            };
+
+            _context.Feedbacks.Add(feedbackReply);
+            await _context.SaveChangesAsync();
+            return Ok(ResponseHandle<Feedback>.Success(feedbackReply)); 
+        }
+
+
         [HttpPost]
         public async Task<ActionResult<IEnumerable<Feedback>>> CreateOrUpdateFeedback([FromForm] FeedbackFormValues feedbackDto)
         {
@@ -45,9 +74,13 @@ namespace KidProjectServer.Controllers
                     Comment = feedbackDto.Comment,
                     CreateDate = DateTime.UtcNow,
                     LastUpdateDate = DateTime.UtcNow,
+                    Type = Constants.TYPE_FEEDBACK,
                     Status = Constants.STATUS_ACTIVE
                 };
                 _context.Feedbacks.Add(feedback);
+                await _context.SaveChangesAsync();
+                feedback.FeedbackReplyID = feedback.FeedbackID;
+                await _context.SaveChangesAsync();
 
                 //month statistic rating
                 int currentMonth = DateTime.UtcNow.Month;
@@ -110,16 +143,41 @@ namespace KidProjectServer.Controllers
                         select new FeedbackDto
                         {
                             FeedbackID = feedbacks.FeedbackID,
+                            FeedbackReplyID = feedbacks.FeedbackReplyID,
                             BookingID = feedbacks.BookingID,
                             Image = users.Image,
                             Rating = feedbacks.Rating,
                             Comment = feedbacks.Comment,
+                            ReplyComment = feedbacks.ReplyComment,
+                            Type = feedbacks.Type,
+                            CreateDate = feedbacks.CreateDate
+                        };
+            FeedbackDto[] feedbacks1 = await query.OrderBy(p => p.FeedbackReplyID).ToArrayAsync();
+            return Ok(ResponseArrayHandle<FeedbackDto>.Success(feedbacks1));
+        }
+
+        [HttpGet("byReplyID/{replyId}")]
+        public async Task<ActionResult<IEnumerable<FeedbackDto>>> GetFeedbackByReplyID(int replyId)
+        {
+            var query = from feedbacks in _context.Feedbacks
+                        join bookings in _context.Bookings on feedbacks.BookingID equals bookings.BookingID
+                        join users in _context.Users on feedbacks.UserID equals users.UserID
+                        where feedbacks.FeedbackReplyID == replyId
+                        select new FeedbackDto
+                        {
+                            FeedbackID = feedbacks.FeedbackID,
+                            FeedbackReplyID = feedbacks.FeedbackReplyID,
+                            BookingID = feedbacks.BookingID,
+                            Image = users.Image,
+                            Rating = feedbacks.Rating,
+                            Comment = feedbacks.Comment,
+                            ReplyComment = feedbacks.ReplyComment,
+                            Type = feedbacks.Type,
                             CreateDate = feedbacks.CreateDate
                         };
             FeedbackDto[] feedbacks1 = await query.ToArrayAsync();
             return Ok(ResponseArrayHandle<FeedbackDto>.Success(feedbacks1));
         }
-
     }
 }
 
@@ -128,6 +186,7 @@ public class FeedbackFormValues
     public int? UserID { get; set; }
     public int? PartyID { get; set; }
     public int? BookingID { get; set; }
+    public int? FeedbackID { get; set; }
     public int? Rating { get; set; }
     public string? Comment { get; set; }
 }
@@ -135,10 +194,13 @@ public class FeedbackFormValues
 public class FeedbackDto
 {
     public int? FeedbackID { get; set; }
+    public int? FeedbackReplyID { get; set; }
     public int? BookingID { get; set; }
     public string? Image { get; set; }
     public int? Rating { get; set; }
+    public string? Type { get; set; }
     public string? Comment { get; set; }
+    public string? ReplyComment { get; set; }
     public DateTime? CreateDate { get; set; }
 
 }
