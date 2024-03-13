@@ -1,6 +1,7 @@
 ﻿using KidProjectServer.Config;
 using KidProjectServer.Entities;
 using KidProjectServer.Models;
+using KidProjectServer.Services;
 using KidProjectServer.Util;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,11 +24,13 @@ namespace KidProjectServer.Controllers
     public class BookingController : ControllerBase
     {
         private readonly DBConnection _context;
+        private readonly IBookingService _bookingService;
         private readonly IConfiguration _configuration;
 
-        public BookingController(DBConnection context, IConfiguration configuration)
+        public BookingController(DBConnection context, IBookingService bookingService,IConfiguration configuration)
         {
             _context = context;
+            _bookingService = bookingService;
             _configuration = configuration;
         }
 
@@ -44,8 +47,8 @@ namespace KidProjectServer.Controllers
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            Booking[] bookings = await _context.Bookings.Where(p => p.UserID == id).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Bookings.Where(p => p.UserID == id).CountAsync();
+            Booking[] bookings = await _bookingService.GetBookingsByUserID(id, offset, size);
+            int countTotal = await _bookingService.CountBookingsByUserID(id);
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<Booking>.Success(bookings, totalPage));
         }
@@ -58,25 +61,7 @@ namespace KidProjectServer.Controllers
             {
                 bookingDate = DateTime.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture);
             }
-            BookingDto[] results = await (from bookings in _context.Bookings
-                               join parties in _context.Parties on bookings.PartyID equals parties.PartyID
-                               join users in _context.Users on bookings.UserID equals users.UserID
-                               where parties.HostUserID == hostId &&
-                               bookings.BookingDate == bookingDate select new BookingDto
-                               {
-                                   BookingID = bookings.BookingID,
-                                   FullName = users.FullName,
-                                   PhoneNumber = users.PhoneNumber,
-                                   PartyName = bookings.PartyName,
-                                   Image = parties.Image,
-                                   RoomName = bookings.RoomName,
-                                   SlotTimeStart = bookings.SlotTimeStart,
-                                   SlotTimeEnd = bookings.SlotTimeEnd,
-                                   MenuDescription = bookings.MenuDescription,
-                                   DiningTable = bookings.DiningTable,
-                                   PaymentAmount = bookings.PaymentAmount,
-                                   Status = bookings.Status,
-                               }).ToArrayAsync();
+            BookingDto[] results = await _bookingService.GetByBookingDate(hostId, bookingDate);
             return Ok(ResponseArrayHandle<BookingDto>.Success(results));
         }
 
@@ -217,6 +202,7 @@ namespace KidProjectServer.Controllers
         public string? MenuDescription { get; set; }
         public int? DiningTable { get; set; }
         public int? PaymentAmount { get; set; }
+        public DateTime? BookingDate { get; set; }
         public string? Status { get; set; }
     }
 

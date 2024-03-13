@@ -1,4 +1,6 @@
 ﻿using KidProjectServer.Config;
+using KidProjectServer.Repositories;
+using KidProjectServer.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -7,7 +9,12 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// Đăng ký các dịch vụ của repository và service
+builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddDbContext<DBConnection>(options => options.UseSqlServer(connectionString));
+
+
 
 //CORS
 builder.Services.AddCors(options =>
