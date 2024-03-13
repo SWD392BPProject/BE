@@ -90,10 +90,13 @@ namespace KidProjectServer.Controllers
                         await formData.Image.CopyToAsync(stream);
                     }
                     // Delete old image if it exists
-                    var oldImagePath = Path.Combine(_configuration["ImagePath"], oldRoom.Image);
-                    if (System.IO.File.Exists(oldImagePath))
+                    if(oldRoom.Image != null)
                     {
-                        System.IO.File.Delete(oldImagePath);
+                        var oldImagePath = Path.Combine(_configuration["ImagePath"], oldRoom.Image);
+                        if (System.IO.File.Exists(oldImagePath))
+                        {
+                            System.IO.File.Delete(oldImagePath);
+                        }
                     }
                 }
 

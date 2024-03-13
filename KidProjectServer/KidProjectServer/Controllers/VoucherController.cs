@@ -29,17 +29,16 @@ namespace KidProjectServer.Controllers
             _configuration = configuration;
         }
 
-        [HttpGet("byUserId/{id}")]
+        [HttpGet("byUserID/{id}")]
         public async Task<ActionResult<VoucherDto>> GetMenuById(int id)
         {
             VoucherDto[] voucherDtos = await (from vouchers in _context.Vouchers
-                        join packages in _context.Packages on vouchers.PackageID equals packages.PackageID
                         where vouchers.UserID == id && vouchers.Status == Constants.STATUS_ACTIVE
                         select new VoucherDto
                         {
                             VoucherID = vouchers.VoucherID,
                             VoucherCode = vouchers.VoucherCode,
-                            PackageName = packages.PackageName,
+                            //PackageName = packages.PackageName,
                             DiscountAmount = vouchers.DiscountAmount,
                             DiscountPercent = vouchers.DiscountPercent,
                             ExpiryDate = vouchers.ExpiryDate,

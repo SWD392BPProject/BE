@@ -27,6 +27,7 @@
 
         /*ROLE NAME*/
         static public string ROLE_USER = "User";
+        static public string ROLE_HOST = "Host";
         static public string ROLE_ADMIN = "Admin";
 
         /*ROLE NAME*/

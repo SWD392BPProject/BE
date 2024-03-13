@@ -7,7 +7,6 @@ namespace KidProjectServer.Entities
         public int? VoucherID { get; set; }
         public int? UserID { get; set; }
         public string? VoucherCode { get; set; }
-        public int? PackageID { get; set; }
         public int? DiscountAmount { get; set; }
         public int? DiscountPercent { get; set; }
         public DateTime? ExpiryDate { get; set; }

@@ -107,10 +107,13 @@ namespace KidProjectServer.Controllers
                         await userDto.Image.CopyToAsync(stream);
                     }
                     // Delete old image if it exists
-                    var oldImagePath = Path.Combine(_configuration["ImagePath"], userOld.Image);
-                    if (System.IO.File.Exists(oldImagePath))
+                    if (userOld.Image != null)
                     {
-                        System.IO.File.Delete(oldImagePath);
+                        var oldImagePath = Path.Combine(_configuration["ImagePath"], userOld.Image);
+                        if (System.IO.File.Exists(oldImagePath))
+                        {
+                            System.IO.File.Delete(oldImagePath);
+                        }
                     }
                 }
 
@@ -224,6 +227,48 @@ namespace KidProjectServer.Controllers
 
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
+
+                //CREATE VOUCHER WHEN REGISTER HOST PARTY
+                if(user.Role == Constants.ROLE_HOST)
+                {
+                    List<Voucher> listVoucherAdd = new List<Voucher>();
+                    DateTime expiryDate = DateTime.UtcNow.AddDays(30); // ADD 30days to expriryDate
+                    Voucher voucher1 = new Voucher
+                    {
+                        VoucherCode = "VOUCHER100K",
+                        DiscountAmount = 100000,
+                        DiscountPercent = 0,
+                        ExpiryDate = expiryDate,
+                        DiscountMax = 100000,
+                        Status = Constants.STATUS_ACTIVE,
+                        UserID = user.UserID
+                    };
+                    Voucher voucher2 = new Voucher
+                    {
+                        VoucherCode = "VOUCHER10%",
+                        DiscountAmount = 0,
+                        DiscountPercent = 10,
+                        ExpiryDate = expiryDate,
+                        DiscountMax = 200000,
+                        Status = Constants.STATUS_ACTIVE,
+                        UserID = user.UserID
+                    };
+                    Voucher voucher3 = new Voucher
+                    {
+                        VoucherCode = "VOUCHER20%",
+                        DiscountAmount = 0,
+                        DiscountPercent = 20,
+                        ExpiryDate = expiryDate,
+                        DiscountMax = 200000,
+                        Status = Constants.STATUS_ACTIVE,
+                        UserID = user.UserID
+                    };
+                    listVoucherAdd.Add(voucher1);
+                    listVoucherAdd.Add(voucher2);
+                    listVoucherAdd.Add(voucher3);
+                    _context.Vouchers.AddRange(listVoucherAdd);
+                    await _context.SaveChangesAsync();
+                }
 
                 var token = GenerateJwtToken(user);
                 LoginResponse loginResponse = new LoginResponse
