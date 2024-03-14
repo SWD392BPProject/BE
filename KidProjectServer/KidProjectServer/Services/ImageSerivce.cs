@@ -9,7 +9,7 @@ namespace KidProjectServer.Services
     public interface IImageService
     {
         Task<string?> UpdateImageFile(string? oldFileName, IFormFile? Image);
-
+        Task<string?> CreateImageFile(IFormFile? Image);
     }
 
     public class ImageService : IImageService
@@ -24,6 +24,10 @@ namespace KidProjectServer.Services
         public Task<string?> UpdateImageFile(string? oldFileName, IFormFile? Image)
         {
             return _imageRepository.UpdateImageFile(oldFileName, Image);
+        }
+        public async Task<string?> CreateImageFile(IFormFile? Image)
+        {
+            return await _imageRepository.CreateImageFile(Image);
         }
     }
 }

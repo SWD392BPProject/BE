@@ -22,15 +22,13 @@ namespace KidProjectServer.Controllers
     [Route("[controller]")]
     public class FeedbackController : ControllerBase
     {
-        private readonly IConfiguration _configuration;
         private readonly IFeedbackService _feedbackService;
         private readonly IStatisticService _statisticService;
 
-        public FeedbackController(IConfiguration configuration, IFeedbackService feedbackService, IStatisticService statisticService)
+        public FeedbackController(IFeedbackService feedbackService, IStatisticService statisticService)
         {
             _feedbackService = feedbackService;
             _statisticService = statisticService;
-            _configuration = configuration;
         }
 
         [HttpPost("reply")]

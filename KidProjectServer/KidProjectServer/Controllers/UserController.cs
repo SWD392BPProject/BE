@@ -1,6 +1,7 @@
 ﻿using KidProjectServer.Config;
 using KidProjectServer.Entities;
 using KidProjectServer.Models;
+using KidProjectServer.Services;
 using KidProjectServer.Util;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,36 +21,39 @@ namespace KidProjectServer.Controllers
     [Route("[controller]")]
     public class UserController : ControllerBase
     {
-        private readonly DBConnection _context;
+        private readonly IUserService _userService;
+        private readonly IImageService _imageService;
+        private readonly IVoucherService _voucherService;
         private readonly IConfiguration _configuration;
 
-        public UserController(DBConnection context, IConfiguration configuration)
+
+        public UserController(IConfiguration configuration, IUserService userService, IImageService imageService, IVoucherService voucherService)
         {
-            _context = context;
+            _userService = userService;
+            _imageService = imageService;
+            _voucherService = voucherService;
             _configuration = configuration;
         }
 
         [HttpGet("byRole/{role}/{page}/{size}")]
-        public async Task<IActionResult> GetUserByRole(string role, int page, int size)
+        public async Task<IActionResult> GetUserByRolePaging(string role, int page, int size)
         {
             int offset = 0;
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            User[] users = await _context.Users.Where(p => p.Role == role).OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await _context.Users.Where(p => p.Role == role).CountAsync();
+            User[] users = await _userService.GetUserByRolePaging(role, offset, size);
+            int countTotal = await _userService.CountUserByRolePaging(role);
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<User>.Success(users, totalPage));
         }
 
         [HttpGet("changeStatus/{userId}/{status}")]
-        public async Task<IActionResult> ChangeStatus(int userId, string status)
+        public async Task<IActionResult> ChangeStatusUser(int userId, string status)
         {
-            User user = await _context.Users.Where(p => p.UserID == userId).FirstOrDefaultAsync();
+            User user = await _userService.ChangeStatusUser(userId, status);
             if (user == null)
             {
                 return Ok(ResponseArrayHandle<User>.Error("User not found"));
             }
-            user.Status = status;
-            await _context.SaveChangesAsync();
             return Ok(ResponseHandle<User>.Success(user));
         }
 
@@ -61,14 +65,9 @@ namespace KidProjectServer.Controllers
             int offset = 0;
             string keyword = searchDto.Keyword??"";
             PagingUtil.GetPageSize(ref page, ref size, ref offset);
-            var query = from users in _context.Users
-                        where users.Role == searchDto.Role &&
-                        ((users.FullName != null && users.FullName.Contains(keyword)) ||
-                        (users.PhoneNumber != null && users.PhoneNumber.Contains(keyword)) ||
-                        (users.Email != null && users.Email.Contains(keyword)))
-                        select users;
-            User[] userData = await query.OrderByDescending(p => p.CreateDate).Skip(offset).Take(size).ToArrayAsync();
-            int countTotal = await query.CountAsync();
+            
+            User[] userData = await _userService.SearchUser(searchDto, keyword, offset, size);
+            int countTotal = await _userService.CountSearchUser(searchDto, keyword);
             int totalPage = (int)Math.Ceiling((double)countTotal / size);
             return Ok(ResponseArrayHandle<User>.Success(userData, totalPage));
         }
@@ -79,56 +78,21 @@ namespace KidProjectServer.Controllers
         {
             try
             {
-                if (string.IsNullOrEmpty(userDto.FullName)
-                || string.IsNullOrEmpty(userDto.PhoneNumber)
-                || string.IsNullOrEmpty(userDto.Email))
+                if (string.IsNullOrEmpty(userDto.FullName) || string.IsNullOrEmpty(userDto.PhoneNumber) || string.IsNullOrEmpty(userDto.Email))
                 {
                     return Ok(ResponseHandle<LoginResponse>.Error("Invalid info user to register"));
                 }
-
-                var userOld = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userDto.UserID);
+                User? userOld = await _userService.GetUserByID(userDto.UserID??0);
                 if (userOld == null)
                 {
                     return Ok(ResponseHandle<LoginResponse>.Error("User not found"));
                 }
-
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userDto.Email && u.UserID != userDto.UserID);
-                if (user != null)
+                if (await _userService.CheckIsExistEmail(userDto.Email, userDto.UserID??0))
                 {
                     return Ok(ResponseHandle<LoginResponse>.Error("Email already in exists"));
                 }
-                string fileName = userOld.Image;
-                if (userDto.Image != null)
-                {
-                    fileName = Guid.NewGuid().ToString() + Path.GetExtension(userDto.Image.FileName);
-                    var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
-                    using (var stream = new FileStream(imagePath, FileMode.Create))
-                    {
-                        await userDto.Image.CopyToAsync(stream);
-                    }
-                    // Delete old image if it exists
-                    if (userOld.Image != null)
-                    {
-                        var oldImagePath = Path.Combine(_configuration["ImagePath"], userOld.Image);
-                        if (System.IO.File.Exists(oldImagePath))
-                        {
-                            System.IO.File.Delete(oldImagePath);
-                        }
-                    }
-                }
-
-                userOld.Image = fileName;
-                userOld.FullName = userDto.FullName;
-                userOld.PhoneNumber = userDto.PhoneNumber;
-                userOld.Email = userDto.Email;
-                userOld.LastUpdateDate = DateTime.UtcNow;
-                if(userDto.NewPassword != null)
-                {
-                    userOld.Password = HashPassword(userDto.NewPassword);
-                }
-
-                await _context.SaveChangesAsync();
-
+                string? fileName = await _imageService.UpdateImageFile(userOld.Image, userDto.Image);
+                userOld = await _userService.UpdateInfoUser(fileName, userOld, userDto);
                 return Ok(ResponseHandle<User>.Success(userOld));
             }
             catch (Exception e)
@@ -142,9 +106,7 @@ namespace KidProjectServer.Controllers
         {
             try
             {
-                if (string.IsNullOrEmpty(userDto.OldPassword)
-                || string.IsNullOrEmpty(userDto.NewPassword)
-                || string.IsNullOrEmpty(userDto.UserID.ToString()))
+                if (string.IsNullOrEmpty(userDto.OldPassword) || string.IsNullOrEmpty(userDto.NewPassword) || string.IsNullOrEmpty(userDto.UserID.ToString()))
                 {
                     return Ok(ResponseHandle<LoginResponse>.Error("Invalid info user to register"));
                 }
@@ -153,23 +115,7 @@ namespace KidProjectServer.Controllers
                 {
                     return Ok(ResponseHandle<LoginResponse>.Error("New Password must contain at least 6 characters."));
                 }
-
-                var userOld = await _context.Users.FirstOrDefaultAsync(u => u.UserID == userDto.UserID);
-                if (userOld == null)
-                {
-                    return Ok(ResponseHandle<LoginResponse>.Error("User not found"));
-                }
-
-                if (!VerifyPassword(userOld.Password, userDto.OldPassword))
-                {
-                    return Ok(ResponseHandle<LoginResponse>.Error("Incorect current password"));
-                }
-
-                userOld.Password = HashPassword(userDto.NewPassword);
-                userOld.LastUpdateDate = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
+                User? userOld = await _userService.ChangePassword(userDto);
                 return Ok(ResponseHandle<User>.Success(userOld));
             }
             catch (Exception e)
@@ -179,14 +125,11 @@ namespace KidProjectServer.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromForm] RegisterUserForm userDto)
+        public async Task<IActionResult> RegisterUser([FromForm] RegisterUserForm userDto)
         {
             try
             {
-                if (string.IsNullOrEmpty(userDto.FullName)
-                || string.IsNullOrEmpty(userDto.Password)
-                || string.IsNullOrEmpty(userDto.PhoneNumber)
-                || string.IsNullOrEmpty(userDto.Email))
+                if (string.IsNullOrEmpty(userDto.FullName) || string.IsNullOrEmpty(userDto.Password) || string.IsNullOrEmpty(userDto.PhoneNumber) || string.IsNullOrEmpty(userDto.Email))
                 {
                     return Ok(ResponseHandle<LoginResponse>.Error("Invalid info user to register"));
                 }
@@ -196,78 +139,17 @@ namespace KidProjectServer.Controllers
                     return Ok(ResponseHandle<LoginResponse>.Error("Password must contain at least 6 characters."));
                 }
 
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userDto.Email);
-                if (user != null)
+                if (await _userService.CheckIsExistEmail(userDto.Email, 0))
                 {
                     return Ok(ResponseHandle<LoginResponse>.Error("Email already in exists"));
                 }
-                string fileName = null;
-                if (userDto.Image != null)
-                {
-                    fileName = Guid.NewGuid().ToString() + Path.GetExtension(userDto.Image.FileName);
-                    var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
-                    using (var stream = new FileStream(imagePath, FileMode.Create))
-                    {
-                        await userDto.Image.CopyToAsync(stream);
-                    }
-                }
-
-                user = new User
-                {
-                    FullName = userDto.FullName,
-                    Email = userDto.Email,
-                    Image = fileName,
-                    Password = HashPassword(userDto.Password),
-                    PhoneNumber = userDto.PhoneNumber,
-                    CreateDate = DateTime.UtcNow,
-                    LastUpdateDate = DateTime.UtcNow,
-                    Status = Constants.STATUS_ACTIVE,
-                    Role = userDto.Role,
-                };
-
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
+                string? fileName = await _imageService.CreateImageFile(userDto.Image);
+                User user = await _userService.RegisterUser(fileName, userDto);
 
                 //CREATE VOUCHER WHEN REGISTER HOST PARTY
                 if(user.Role == Constants.ROLE_HOST)
                 {
-                    List<Voucher> listVoucherAdd = new List<Voucher>();
-                    DateTime expiryDate = DateTime.UtcNow.AddDays(30); // ADD 30days to expriryDate
-                    Voucher voucher1 = new Voucher
-                    {
-                        VoucherCode = "VOUCHER100K",
-                        DiscountAmount = 100000,
-                        DiscountPercent = 0,
-                        ExpiryDate = expiryDate,
-                        DiscountMax = 100000,
-                        Status = Constants.STATUS_ACTIVE,
-                        UserID = user.UserID
-                    };
-                    Voucher voucher2 = new Voucher
-                    {
-                        VoucherCode = "VOUCHER10%",
-                        DiscountAmount = 0,
-                        DiscountPercent = 10,
-                        ExpiryDate = expiryDate,
-                        DiscountMax = 200000,
-                        Status = Constants.STATUS_ACTIVE,
-                        UserID = user.UserID
-                    };
-                    Voucher voucher3 = new Voucher
-                    {
-                        VoucherCode = "VOUCHER20%",
-                        DiscountAmount = 0,
-                        DiscountPercent = 20,
-                        ExpiryDate = expiryDate,
-                        DiscountMax = 200000,
-                        Status = Constants.STATUS_ACTIVE,
-                        UserID = user.UserID
-                    };
-                    listVoucherAdd.Add(voucher1);
-                    listVoucherAdd.Add(voucher2);
-                    listVoucherAdd.Add(voucher3);
-                    _context.Vouchers.AddRange(listVoucherAdd);
-                    await _context.SaveChangesAsync();
+                    await _voucherService.Create3DefaultVouchers(user.UserID??0);
                 }
 
                 var token = GenerateJwtToken(user);
@@ -299,23 +181,11 @@ namespace KidProjectServer.Controllers
                     return Ok(ResponseHandle<LoginResponse>.Error("Invalid info user to login"));
                 }
 
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userDto.Email);
+                var user = await _userService.GetUserByEmail(userDto.Email);
                 if (user == null)
                 {
                     //REGISTER NEW ACCOUNT
-                    user = new User
-                    {
-                        FullName = userDto.FullName,
-                        Email = userDto.Email,
-                        Password = HashPassword("123456"),
-                        CreateDate = DateTime.UtcNow,
-                        LastUpdateDate = DateTime.UtcNow,
-                        Status = Constants.STATUS_ACTIVE,
-                        Role = Constants.ROLE_USER,
-                    };
-
-                    _context.Users.Add(user);
-                    await _context.SaveChangesAsync();
+                    user = await _userService.CreateUserGoogle(userDto);
                 }
                 else
                 {
@@ -345,40 +215,16 @@ namespace KidProjectServer.Controllers
         }
 
         [HttpGet("topHostParty/{size}")]
-        public async Task<IActionResult> TopHostParty(int size)
+        public async Task<IActionResult> GetUserTopHostParty(int size)
         {
-            // Lấy tháng và năm hiện tại
-            int currentMonth = DateTime.UtcNow.Month;
-            int currentYear = DateTime.UtcNow.Year;
-
-            // Truy vấn LINQ
-            var query = from users in _context.Users
-                        join parties in _context.Parties on users.UserID equals parties.HostUserID
-                        join bookings in _context.Bookings on parties.PartyID equals bookings.PartyID
-                        where bookings.CreateDate != null &&
-                             bookings.CreateDate.Value.Month == currentMonth &&
-                             bookings.CreateDate.Value.Year == currentYear &&
-                             users.Status == Constants.STATUS_ACTIVE
-                        group bookings by users into g
-                        orderby g.Sum(b => b.PaymentAmount) descending
-                        select new UserTopDto
-                        {
-                            UserID = g.Key.UserID,
-                            FullName = g.Key.FullName,
-                            Image = g.Key.Image,
-                            Revenue = g.Sum(b => b.PaymentAmount)
-                        };
-
-            // Lấy 5 user có doanh thu cao nhất
-            var topUsers = await query.Take(size).ToArrayAsync();
-
+            UserTopDto[] topUsers = await _userService.GetUserTopHostParty(size);
             return Ok(ResponseArrayHandle<UserTopDto>.Success(topUsers));
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromForm] UserLoginDto loginDto)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+            var user = await _userService.GetUserByEmail(loginDto.Email);
             if (user == null)
             {
                 return Ok(ResponseHandle<LoginResponse>.Error("Incorect username or password"));
@@ -407,81 +253,6 @@ namespace KidProjectServer.Controllers
             return Ok(ResponseHandle<LoginResponse>.Success(loginResponse));
         }
 
-        // GET: /user/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUser(int id)
-        {
-            User user = await _context.Users.Where(p => p.UserID == id).FirstOrDefaultAsync();
-            if (user == null)
-            {
-                return Ok(ResponseHandle<User>.Error("User not found"));
-            }
-            return Ok(ResponseHandle<User>.Success(user));
-
-        }
-
-        // POST: /user
-        [HttpPost]
-        public async Task<ActionResult<User>> CreateUser(User user)
-        {
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetUser), new { id = user.UserID }, user);
-        }
-
-        // PUT: /user/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(int id, User user)
-        {
-            if (id != user.UserID)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(user).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!UserExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
-
-        // DELETE: /user/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(string id)
-        {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-        private string HashPassword(string password)
-        {
-            // Replace this with your actual password hashing logic (e.g., using BCrypt)
-            return BCrypt.Net.BCrypt.HashPassword(password);
-        }
-
         private string GenerateJwtToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -502,71 +273,9 @@ namespace KidProjectServer.Controllers
             return tokenHandler.WriteToken(token);
         }
 
-        private bool UserExists(int id)
-        {
-            return _context.Users.Any(e => e.UserID == id);
-        }
-
         private bool VerifyPassword(string hashedPassword, string password)
         {
-            // Your password verification logic here
-            // For example, if you are using BCrypt for hashing, you can verify the password like this:
             return BCrypt.Net.BCrypt.Verify(password, hashedPassword);
         }
-    }
-
-    public class LoginResponse
-    {
-        public int UserID { get; set; }
-        public string FullName { get; set; }
-        public string Email { get; set; }
-        public string PhoneNumber { get; set; }
-        public string Role { get; set; }
-        public string Token { get; set; }
-    }
-    public class ChangePWForm
-    {
-        public int? UserID { get; set; }
-        public string? OldPassword { get; set; }
-        public string? NewPassword { get; set; }
-    }
-
-    public class RegisterUserForm
-    {
-        public int? UserID { get; set; }
-        public string? FullName { get; set; }
-        public string? Email { get; set; }
-        public string? PhoneNumber { get; set; }
-        public string? Password { get; set; }
-        public string? NewPassword { get; set; }
-        public string? Role { get; set; }
-        public IFormFile? Image { get; set; }
-    }
-
-    public class GoogleLoginForm
-    {
-        public string Email { get; set; }
-        public string FullName { get; set; }
-    }
-
-    public class UserLoginDto
-    {
-        public string Email { get; set; }
-        public string Password { get; set; }
-    }
-
-    public class UserSearchForm
-    {
-        public string? Keyword { get; set; }
-        public string Role { get; set; }
-        public int Page { get; set; }
-        public int Size { get; set; }
-    }
-    public class UserTopDto
-    {
-        public int? UserID { get; set; }
-        public string? FullName { get; set; }
-        public string? Image { get; set; }
-        public int? Revenue { get; set; }
     }
 }

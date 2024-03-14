@@ -21,16 +21,12 @@ namespace KidProjectServer.Controllers
     [Route("[controller]")]
     public class MenuController : ControllerBase
     {
-        private readonly DBConnection _context;
         private readonly IMenuService _menuService;
         private readonly IImageService _imageService;
-        private readonly IConfiguration _configuration;
 
-        public MenuController(DBConnection context, IConfiguration configuration, IMenuService menuService, IImageService imageService)
+        public MenuController(IMenuService menuService, IImageService imageService)
         {
-            _context = context;
             _menuService = menuService;
-            _configuration = configuration;
             _imageService = imageService;
         }
 
@@ -77,13 +73,8 @@ namespace KidProjectServer.Controllers
             {
                 return Ok(ResponseHandle<LoginResponse>.Error("Image file is required."));
             }
-            string fileName = Guid.NewGuid().ToString() + Path.GetExtension(formData.Image.FileName);
-            var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
-            using (var stream = new FileStream(imagePath, FileMode.Create))
-            {
-                await formData.Image.CopyToAsync(stream);
-            }
-            var Menu = await _menuService.CreateMenu(fileName, formData);
+            string? fileName = await _imageService.CreateImageFile(formData.Image);
+            var Menu = await _menuService.CreateMenu(fileName??"", formData);
             return Ok(ResponseHandle<Menu>.Success(Menu));
         }
 

@@ -1,6 +1,7 @@
 ﻿using KidProjectServer.Config;
 using KidProjectServer.Entities;
 using KidProjectServer.Models;
+using KidProjectServer.Services;
 using KidProjectServer.Util;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,70 +22,19 @@ namespace KidProjectServer.Controllers
     [Route("[controller]")]
     public class ScheduleController : ControllerBase
     {
-        private readonly DBConnection _context;
-        private readonly IConfiguration _configuration;
+        private readonly IScheduleService _scheduleService;
 
-        public ScheduleController(DBConnection context, IConfiguration configuration)
+        public ScheduleController(IScheduleService scheduleService)
         {
-            _context = context;
-            _configuration = configuration;
+            _scheduleService = scheduleService;
         }
 
-
-        // GET: api/Room/{page}/{size}
         [HttpGet("byHostID/{id}")]
-        public async Task<ActionResult<IEnumerable<ScheduleDto>>> GetSlotByRoomID(int id)
+        public async Task<ActionResult<IEnumerable<ScheduleDto>>> GetScheduleByHostID(int id)
         {
-            DateTime firstDayOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
-            DateTime lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
-
-            List<ScheduleDto> dateOfMonths = new List<ScheduleDto>();
-
-            for (DateTime date = firstDayOfMonth; date <= lastDayOfMonth; date = date.AddDays(1))
-            {
-                ScheduleDto scheduleDto = new ScheduleDto();
-                scheduleDto.DateOfMonth = date;
-                scheduleDto.Day = date.ToString("dd");
-                scheduleDto.AmountParty = 0;
-                scheduleDto.IsToday = date == DateTime.Today ? true : false;
-                scheduleDto.DayOfWeek = date.DayOfWeek.ToString();
-                dateOfMonths.Add(scheduleDto);
-            }
-
-            Booking[] arrayBooking = await (from bookings in _context.Bookings
-                        join parties in _context.Parties on bookings.PartyID equals parties.PartyID
-                        where parties.HostUserID == id && 
-                        bookings.BookingDate >= firstDayOfMonth &&
-                        bookings.BookingDate <= lastDayOfMonth
-                        select bookings).ToArrayAsync();
-
-            foreach (ScheduleDto schedule in dateOfMonths)
-            {
-                foreach(Booking booking in arrayBooking)
-                {
-                    if(schedule.DateOfMonth == booking.BookingDate)
-                    {
-                        schedule.AmountParty += 1;
-                    }
-                }
-            }
-
-
-            return Ok(ResponseArrayHandle<ScheduleDto>.Success(dateOfMonths.ToArray()));
+            ScheduleDto[] schedule = await _scheduleService.GetScheduleByHostID(id);
+            return Ok(ResponseArrayHandle<ScheduleDto>.Success(schedule));
         }
-
-        // GET: api/Room/{page}/{size}
-      
-
-
     }
 }
 
-public class ScheduleDto
-{
-    public DateTime DateOfMonth { get; set; }
-    public string Day { get; set; }
-    public string DayOfWeek { get; set; }
-    public int AmountParty { get; set; }
-    public bool IsToday { get; set; }
-}

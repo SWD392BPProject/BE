@@ -1,6 +1,7 @@
 ﻿using KidProjectServer.Config;
 using KidProjectServer.Entities;
 using KidProjectServer.Models;
+using KidProjectServer.Services;
 using KidProjectServer.Util;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,68 +22,18 @@ namespace KidProjectServer.Controllers
     [Route("[controller]")]
     public class StatisticController : ControllerBase
     {
-        private readonly DBConnection _context;
-        private readonly IConfiguration _configuration;
+        private readonly IStatisticService _statisticService;
 
-        public StatisticController(DBConnection context, IConfiguration configuration)
+        public StatisticController(IStatisticService statisticService)
         {
-            _context = context;
-            _configuration = configuration;
+            _statisticService = statisticService;
         }
 
         [HttpGet("last4Month")]
-        public async Task<ActionResult<IEnumerable<List<Statistic>>>> GetSlotByRoomID(int id)
+        public async Task<ActionResult<IEnumerable<List<Statistic>>>> GetLast4MonthStatistic(int id)
         {
-            DateTime currentDateTime = DateTime.UtcNow;
-            int currentMonth = currentDateTime.Month;
-            int currentYear = currentDateTime.Year;
-            List<List<Statistic>> statistics = new List<List<Statistic>>();
-            foreach(var entry in getLast4Month())
-            {
-                List<Statistic> list = new List<Statistic>();
-                for(int i = 0; i < Constants.TYPE_REVENUE_LIST.Length; i++)
-                {
-                    Statistic statistic = await _context.Statistics.Where(p => p.Month == entry.Key && p.Year == entry.Value && p.Type == Constants.TYPE_REVENUE_LIST[i]).FirstOrDefaultAsync();
-                    if(statistic == null)
-                    {
-                        statistic = new Statistic
-                        {
-                            Type = Constants.TYPE_REVENUE_LIST[i],
-                            Amount = 0,
-                            Month = currentMonth,
-                            Year = currentYear
-                        };
-                    }
-                    list.Add(statistic);
-                }
-                statistics.Add(list);
-            }
-
+            List<List<Statistic>> statistics = await _statisticService.GetLast4MonthStatistic(id);
             return Ok(ResponseArrayHandle<List<Statistic>>.Success(statistics.ToArray()));
         }
-
-
-        private Dictionary<int, int> getLast4Month()
-        {
-            Dictionary<int, int> last4Months = new Dictionary<int, int>();
-
-            DateTime currentDateTime = DateTime.UtcNow;
-            int currentMonth = currentDateTime.Month;
-            int currentYear = currentDateTime.Year;
-
-            for (int i = 0; i < 4; i++)
-            {
-                if (currentMonth == 0)
-                {
-                    currentMonth = 12;
-                    currentYear--;
-                }
-                last4Months.Add(currentMonth, currentYear);
-                currentMonth--;
-            }
-
-            return last4Months;
-        }
     }
-
 }

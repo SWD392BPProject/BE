@@ -25,13 +25,11 @@ namespace KidProjectServer.Controllers
     {
         private readonly IBookingService _bookingService;
         private readonly IStatisticService _statisticService;
-        private readonly IConfiguration _configuration;
 
-        public BookingController(IBookingService bookingService, IStatisticService statisticService, IConfiguration configuration)
+        public BookingController(IBookingService bookingService, IStatisticService statisticService)
         {
             _bookingService = bookingService;
             _statisticService = statisticService;
-            _configuration = configuration;
         }
 
         [HttpGet("{id}")]

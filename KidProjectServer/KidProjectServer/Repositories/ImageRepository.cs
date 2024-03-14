@@ -10,6 +10,7 @@ namespace KidProjectServer.Repositories
     public interface IImageRepository
     {
         Task<string?> UpdateImageFile(string? oldFileName, IFormFile? Image);
+        Task<string?> CreateImageFile(IFormFile? Image);
     }
 
     public class ImageRepository : IImageRepository
@@ -21,6 +22,21 @@ namespace KidProjectServer.Repositories
         {
             _context = context;
             _configuration = configuration;
+        }
+
+        public async Task<string?> CreateImageFile(IFormFile? Image)
+        {
+            if(Image == null)
+            {
+                return null;
+            }
+            string fileName = Guid.NewGuid().ToString() + Path.GetExtension(Image.FileName);
+            var imagePath = Path.Combine(_configuration["ImagePath"], fileName);
+            using (var stream = new FileStream(imagePath, FileMode.Create))
+            {
+                await Image.CopyToAsync(stream);
+            }
+            return fileName;
         }
 
         public async Task<string?> UpdateImageFile(string? oldFileName, IFormFile? Image)
