@@ -35,6 +35,17 @@ namespace KidProjectServer.Controllers
             _configuration = configuration;
         }
 
+        [HttpGet("{id}")]
+        public async Task<ActionResult<User>> GetUser(int id)
+        {
+            User? user = await _userService.GetUserByID(id);
+            if (user == null)
+            {
+                return Ok(ResponseHandle<User>.Error("User not found"));
+            }
+            return Ok(ResponseHandle<User>.Success(user));
+        }
+
         [HttpGet("byRole/{role}/{page}/{size}")]
         public async Task<IActionResult> GetUserByRolePaging(string role, int page, int size)
         {
